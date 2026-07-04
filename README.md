@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Inkora
 
-## Getting Started
+Software all-in-one para estudios de tatuaje. Diseñado para superar a Porter, TATTOOX y SesionInk en el flujo real del artista latinoamericano.
 
-First, run the development server:
+## Qué incluye
+
+- Landing del producto
+- Página pública del estudio + portafolio
+- Solicitud de turno con **cotización inteligente** (estilo, zona, tamaño)
+- Panel del estudio:
+  - Resumen y pipeline
+  - Solicitudes (cotizar → seña → confirmar)
+  - Agenda multi-artista
+  - CRM de clientes
+  - Caja y comisiones
+  - Consentimientos digitales
+  - Portafolio
+  - Reportes
+  - Configuración
+
+Los datos viven en `localStorage` (demo persistente). Podés resetear desde el panel.
+
+## Arrancar
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abrí [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Flujo demo recomendado
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. `/` — propuesta de producto
+2. `/estudio/nueva-temporada` — página pública
+3. `/estudio/nueva-temporada/reservar` — crear solicitud
+4. `/dashboard/solicitudes` — aprobar cotización y registrar seña
+5. `/dashboard/consentimientos` — firmar consentimiento
+6. `/dashboard/agenda` — completar sesión y cobrar saldo
+7. `/dashboard/caja` y `/dashboard/reportes` — ver impacto
 
-## Learn More
+## Stack
 
-To learn more about Next.js, take a look at the following resources:
+- Next.js (App Router)
+- TypeScript
+- Tailwind CSS
+- Zustand (estado + persistencia)
+- date-fns
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Próximos pasos de producto
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Auth real (artistas / dueños / clientes)
+- Pagos Mercado Pago / Stripe
+- SMS / WhatsApp reminders
+- Subida de referencias e ID
+- Multi-estudio y roles
+- API + webhooks
