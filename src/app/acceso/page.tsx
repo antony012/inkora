@@ -2,12 +2,16 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
 import { ShieldCheck, Upload } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { PasswordField } from "@/components/PasswordField";
+import { ProfilePhotoUpload } from "@/components/UserAvatar";
 import { ArtistBadge, SocialStrip } from "@/components/SocialStrip";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import { useInkora } from "@/lib/store";
+import { userAccessMessage } from "@/lib/user-access";
 import {
   sanitizeEmail,
   sanitizePhone,
@@ -29,14 +33,18 @@ async function fileToDataUrl(file: File) {
 }
 
 export default function AccesoPage() {
+  const router = useRouter();
   const registerUser = useInkora((s) => s.registerUser);
   const loginUser = useInkora((s) => s.loginUser);
+  const changePassword = useInkora((s) => s.changePassword);
+  const resetPassword = useInkora((s) => s.resetPassword);
   const logoutUser = useInkora((s) => s.logoutUser);
   const submitIdentityDocument = useInkora((s) => s.submitIdentityDocument);
+  const updateProfilePhoto = useInkora((s) => s.updateProfilePhoto);
   const studio = useInkora((s) => s.studio);
   const { hydrated, sessionUser } = useSessionUser();
 
-  const [mode, setMode] = useState<"login" | "register">("register");
+  const [mode, setMode] = useState<"login" | "register" | "recover">("register");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -46,45 +54,174 @@ export default function AccesoPage() {
   const [preview, setPreview] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const greeting = useMemo(() => {
-    if (!sessionUser) return null;
-    return sessionUser.verificationStatus === "verificado"
-      ? "Listo para pujar en vivo"
-      : "Completa tu verificación";
-  }, [sessionUser]);
-
-  const onRegister = (e: FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-    const result = registerUser({
-      name: sanitizeText(name, 80),
-      email: sanitizeEmail(email),
-      phone: sanitizePhone(phone),
-      rut: sanitizeText(rut, 20),
-      documentType,
-    });
-    if (!result.ok) {
-      setError(result.error ?? "No se pudo crear la cuenta.");
-      return;
-    }
-    setSuccess("Cuenta creada. Ahora sube tu documento de identidad.");
+  const clearPasswordFields = () => {
+    setPassword("");
+    setConfirmPassword("");
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmNewPassword("");
   };
 
-  const onLogin = (e: FormEvent) => {
+  const switchMode = (next: "login" | "register" | "recover") => {
+    setMode(next);
+    clearPasswordFields();
+    setError("");
+    setSuccess("");
+  };
+
+  const onRegister = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
-    const result = loginUser({
-      email: sanitizeEmail(email),
-      phone: sanitizePhone(phone),
-    });
-    if (!result.ok) {
-      setError(result.error ?? "No se pudo iniciar sesión.");
+
+    if (password !== confirmPassword) {
+      setError("Las contraseñas no coinciden.");
       return;
     }
-    setSuccess("Sesión iniciada correctamente.");
+
+    setSubmitting(true);
+    try {
+      const result = await registerUser({
+        name: sanitizeText(name, 80),
+        email: sanitizeEmail(email),
+        phone: sanitizePhone(phone),
+        rut: sanitizeText(rut, 20),
+        documentType,
+        password,
+      });
+      if (!result.ok) {
+        setError(result.error ?? "No se pudo crear la cuenta.");
+        return;
+      }
+      setSuccess("Cuenta creada. Ya puedes pujar y reservar.");
+      setPassword("");
+      setConfirmPassword("");
+      router.push(`/estudio/${studio.slug}/subasta`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onLogin = async (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    setSubmitting(true);
+    try {
+      const result = await loginUser({
+        email: sanitizeEmail(email),
+        password,
+      });
+      if (!result.ok) {
+        setError(result.error ?? "No se pudo iniciar sesión.");
+        return;
+      }
+      setSuccess("Sesión iniciada correctamente.");
+      setPassword("");
+      router.push(`/estudio/${studio.slug}/subasta`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onRecover = async (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (password !== confirmPassword) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const result = await resetPassword({
+        email: sanitizeEmail(email),
+        phone: sanitizePhone(phone),
+        rut: sanitizeText(rut, 20),
+        newPassword: password,
+      });
+      if (!result.ok) {
+        setError(result.error ?? "No se pudo restablecer la contraseña.");
+        return;
+      }
+      setSuccess("Contraseña actualizada. Ya puedes iniciar sesión.");
+      clearPasswordFields();
+      switchMode("login");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onChangePassword = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!sessionUser) return;
+    setError("");
+    setSuccess("");
+
+    if (newPassword !== confirmNewPassword) {
+      setError("Las contraseñas nuevas no coinciden.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const result = await changePassword({
+        userId: sessionUser.id,
+        currentPassword,
+        newPassword,
+      });
+      if (!result.ok) {
+        setError(result.error ?? "No se pudo cambiar la contraseña.");
+        return;
+      }
+      setSuccess("Contraseña actualizada correctamente.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+      setShowChangePassword(false);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onProfilePhoto = async (file: File) => {
+    if (!sessionUser) return;
+    setError("");
+    setSuccess("");
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError("La foto de perfil no puede superar 2 MB.");
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setError("La foto de perfil debe ser una imagen.");
+      return;
+    }
+
+    const profilePhotoUrl = await fileToDataUrl(file);
+    const result = updateProfilePhoto({
+      userId: sessionUser.id,
+      profilePhotoUrl,
+    });
+
+    if (!result.ok) {
+      setError(result.error ?? "No se pudo guardar la foto.");
+      return;
+    }
+
+    setSuccess("Foto de perfil actualizada.");
   };
 
   const onUpload = async (e: FormEvent) => {
@@ -142,7 +279,7 @@ export default function AccesoPage() {
 
           <div className="mt-6 space-y-3 text-sm text-[var(--text-muted)]">
             {[
-              "Crea tu cuenta con email y WhatsApp",
+              "Crea tu cuenta con email, WhatsApp y contraseña segura",
               "Sube cédula o pasaporte legible",
               "Revisión del equipo de Enderson",
               "Pujas habilitadas al verificar",
@@ -172,31 +309,46 @@ export default function AccesoPage() {
         <section className="space-y-4">
           {!sessionUser ? (
             <div className="card p-6">
-              <div className="mb-4 flex gap-2">
-                <button
-                  className={
-                    mode === "register"
-                      ? "btn-primary px-4 py-2 text-sm"
-                      : "btn-secondary px-4 py-2 text-sm"
-                  }
-                  onClick={() => setMode("register")}
-                >
-                  Crear cuenta
-                </button>
-                <button
-                  className={
-                    mode === "login"
-                      ? "btn-primary px-4 py-2 text-sm"
-                      : "btn-secondary px-4 py-2 text-sm"
-                  }
-                  onClick={() => setMode("login")}
-                >
-                  Iniciar sesión
-                </button>
-              </div>
+              {mode === "recover" ? (
+                <div className="mb-4">
+                  <h2 className="text-lg font-medium">Recuperar contraseña</h2>
+                  <p className="mt-1 text-sm text-[var(--text-muted)]">
+                    Confirma tu identidad con email, WhatsApp y RUT registrados.
+                  </p>
+                </div>
+              ) : (
+                <div className="mb-4 flex gap-2">
+                  <button
+                    className={
+                      mode === "register"
+                        ? "btn-primary px-4 py-2 text-sm"
+                        : "btn-secondary px-4 py-2 text-sm"
+                    }
+                    onClick={() => switchMode("register")}
+                  >
+                    Crear cuenta
+                  </button>
+                  <button
+                    className={
+                      mode === "login"
+                        ? "btn-primary px-4 py-2 text-sm"
+                        : "btn-secondary px-4 py-2 text-sm"
+                    }
+                    onClick={() => switchMode("login")}
+                  >
+                    Iniciar sesión
+                  </button>
+                </div>
+              )}
 
               <form
-                onSubmit={mode === "register" ? onRegister : onLogin}
+                onSubmit={
+                  mode === "register"
+                    ? onRegister
+                    : mode === "recover"
+                      ? onRecover
+                      : onLogin
+                }
                 className="space-y-3"
               >
                 {mode === "register" ? (
@@ -234,6 +386,17 @@ export default function AccesoPage() {
                     </div>
                   </>
                 ) : null}
+                {mode === "recover" ? (
+                  <div>
+                    <label className="label">RUT / ID</label>
+                    <input
+                      className="input"
+                      value={rut}
+                      onChange={(e) => setRut(e.target.value)}
+                      required
+                    />
+                  </div>
+                ) : null}
                 <div>
                   <label className="label">Email</label>
                   <input
@@ -244,55 +407,121 @@ export default function AccesoPage() {
                     required
                   />
                 </div>
-                <div>
-                  <label className="label">WhatsApp</label>
-                  <input
-                    className="input"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    required={mode === "register"}
-                    placeholder={mode === "login" ? "Opcional si usas email" : ""}
+                {(mode === "register" || mode === "recover") ? (
+                  <div>
+                    <label className="label">WhatsApp</label>
+                    <input
+                      className="input"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      required
+                    />
+                  </div>
+                ) : null}
+                {mode !== "recover" ? (
+                  <PasswordField
+                    label="Contraseña"
+                    value={password}
+                    onChange={setPassword}
+                    autoComplete={
+                      mode === "register" ? "new-password" : "current-password"
+                    }
+                    showHints={mode === "register"}
                   />
-                </div>
+                ) : null}
+                {mode === "register" || mode === "recover" ? (
+                  <>
+                    <PasswordField
+                      label={
+                        mode === "recover"
+                          ? "Nueva contraseña"
+                          : "Confirmar contraseña"
+                      }
+                      value={mode === "recover" ? password : confirmPassword}
+                      onChange={
+                        mode === "recover" ? setPassword : setConfirmPassword
+                      }
+                      autoComplete="new-password"
+                      showHints={mode === "recover"}
+                    />
+                    {mode === "recover" ? (
+                      <PasswordField
+                        label="Confirmar nueva contraseña"
+                        value={confirmPassword}
+                        onChange={setConfirmPassword}
+                        autoComplete="new-password"
+                      />
+                    ) : null}
+                  </>
+                ) : null}
+                {mode === "login" ? (
+                  <button
+                    type="button"
+                    className="text-left text-sm text-[var(--accent-glow)] transition hover:underline"
+                    onClick={() => switchMode("recover")}
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                ) : null}
                 {error ? (
                   <p className="text-sm text-[var(--accent-glow)]">{error}</p>
                 ) : null}
                 {success ? (
                   <p className="text-sm text-[#6ee7b7]">{success}</p>
                 ) : null}
-                <button type="submit" className="btn-primary w-full py-3">
-                  {mode === "register" ? "Crear cuenta" : "Entrar"}
+                <button
+                  type="submit"
+                  className="btn-primary w-full py-3"
+                  disabled={submitting}
+                >
+                  {submitting
+                    ? "Procesando..."
+                    : mode === "register"
+                      ? "Crear cuenta"
+                      : mode === "recover"
+                        ? "Restablecer contraseña"
+                        : "Entrar"}
                 </button>
-                <p className="text-xs text-[var(--text-dim)]">
-                  Demo: sofia@email.com ya está verificada.
-                </p>
+                {mode === "recover" ? (
+                  <button
+                    type="button"
+                    className="btn-secondary w-full py-3 text-sm"
+                    onClick={() => switchMode("login")}
+                  >
+                    Volver a iniciar sesión
+                  </button>
+                ) : null}
+                {mode !== "recover" ? (
+                  <p className="text-xs text-[var(--text-dim)]">
+                    Demo: sofia@email.com · contraseña{" "}
+                    <span className="font-mono">Sofia2026!</span>
+                  </p>
+                ) : null}
               </form>
             </div>
           ) : (
-            <div className="card space-y-4 p-6">
+            <div className="card space-y-5 p-6">
+              <div className="rounded-2xl border border-[var(--border)] bg-[#0d0d10] p-5">
+                <ProfilePhotoUpload
+                  name={sessionUser.name}
+                  profilePhotoUrl={sessionUser.profilePhotoUrl}
+                  verificationStatus={sessionUser.verificationStatus}
+                  onSelect={onProfilePhoto}
+                />
+              </div>
+
               <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-[var(--border)] bg-[#0a0a0c]">
-                    <Image
-                      src={studio.logoUrl}
-                      alt={sessionUser.name}
-                      fill
-                      className="object-cover"
-                      sizes="48px"
-                    />
-                  </div>
-                  <div>
-                    <p className="font-medium">{sessionUser.name}</p>
-                    <p className="text-sm text-[var(--text-muted)]">
-                      {greeting}
-                    </p>
-                    <p className="mt-1 text-xs text-[var(--text-dim)]">
-                      {sessionUser.email} · {sessionUser.phone}
-                    </p>
-                    <p className="text-xs text-[var(--text-dim)]">
-                      RUT: {sessionUser.rut}
-                    </p>
-                  </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{sessionUser.name}</p>
+                  <p className="text-sm text-[var(--text-muted)]">
+                    {userAccessMessage(sessionUser).detail}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--text-dim)]">
+                    {sessionUser.email} · {sessionUser.phone}
+                  </p>
+                  <p className="text-xs text-[var(--text-dim)]">
+                    RUT: {sessionUser.rut}
+                  </p>
                 </div>
                 <span
                   className={`badge ${verificationBadge(sessionUser.verificationStatus)}`}
@@ -303,8 +532,12 @@ export default function AccesoPage() {
 
               {sessionUser.verificationStatus === "verificado" ? (
                 <div className="rounded-2xl border border-[#34d39944] bg-[#34d39914] p-4 text-sm text-[#6ee7b7]">
-                  Identidad verificada. Tu sesión está activa para pujar en la
-                  sala en vivo.
+                  Identidad verificada. Acceso completo a subastas y reservas.
+                </div>
+              ) : sessionUser.verificationStatus !== "rechazado" ? (
+                <div className="rounded-2xl border border-[var(--border)] bg-[#0d0d10] p-4 text-sm text-[var(--text-muted)]">
+                  Tu sesión está activa. Puedes pujar y reservar ahora; la
+                  verificación de documento es opcional para reforzar tu perfil.
                 </div>
               ) : null}
 
@@ -322,7 +555,23 @@ export default function AccesoPage() {
                 </div>
               ) : null}
 
-              {sessionUser.verificationStatus !== "verificado" ? (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Link
+                  href={`/estudio/${studio.slug}/subasta`}
+                  className="btn-primary inline-flex justify-center px-4 py-3 text-sm"
+                >
+                  Ir a subasta
+                </Link>
+                <Link
+                  href={`/estudio/${studio.slug}/reservar`}
+                  className="btn-secondary inline-flex justify-center px-4 py-3 text-sm"
+                >
+                  Reservar turno
+                </Link>
+              </div>
+
+              {sessionUser.verificationStatus !== "verificado" &&
+              sessionUser.verificationStatus !== "rechazado" ? (
                 <form onSubmit={onUpload} className="space-y-3">
                   <div>
                     <label className="label">Documento de identidad</label>
@@ -384,14 +633,63 @@ export default function AccesoPage() {
                     Enviar a revisión
                   </button>
                 </form>
-              ) : (
-                <Link
-                  href={`/estudio/${studio.slug}/subasta`}
-                  className="btn-primary inline-flex w-full justify-center px-4 py-3"
-                >
-                  Ir a pujar
-                </Link>
-              )}
+              ) : null}
+
+              <div className="rounded-2xl border border-[var(--border)] bg-[#0d0d10] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium">Seguridad</p>
+                    <p className="text-sm text-[var(--text-muted)]">
+                      Cambia tu contraseña cuando quieras.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-secondary px-3 py-2 text-sm"
+                    onClick={() => {
+                      setShowChangePassword((current) => !current);
+                      setError("");
+                      setSuccess("");
+                      setCurrentPassword("");
+                      setNewPassword("");
+                      setConfirmNewPassword("");
+                    }}
+                  >
+                    {showChangePassword ? "Ocultar" : "Cambiar"}
+                  </button>
+                </div>
+
+                {showChangePassword ? (
+                  <form onSubmit={onChangePassword} className="mt-4 space-y-3">
+                    <PasswordField
+                      label="Contraseña actual"
+                      value={currentPassword}
+                      onChange={setCurrentPassword}
+                      autoComplete="current-password"
+                    />
+                    <PasswordField
+                      label="Nueva contraseña"
+                      value={newPassword}
+                      onChange={setNewPassword}
+                      autoComplete="new-password"
+                      showHints
+                    />
+                    <PasswordField
+                      label="Confirmar nueva contraseña"
+                      value={confirmNewPassword}
+                      onChange={setConfirmNewPassword}
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="submit"
+                      className="btn-primary w-full py-3"
+                      disabled={submitting}
+                    >
+                      {submitting ? "Guardando..." : "Guardar nueva contraseña"}
+                    </button>
+                  </form>
+                ) : null}
+              </div>
 
               <button
                 onClick={logoutUser}

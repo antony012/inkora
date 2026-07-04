@@ -2,13 +2,14 @@
 
 import { useEffect } from "react";
 import { ConsentBanner } from "@/components/ConsentBanner";
+import { PresenceHeartbeat } from "@/components/PresenceHeartbeat";
 import { MarketingScripts } from "@/components/MarketingScripts";
 import {
   readPersistedState,
   shouldApplyRemoteAuctions,
   subscribeAuctionLive,
 } from "@/lib/live-sync";
-import { mergeUsers, resolveSessionUserId } from "@/lib/session";
+import { mergeUsers } from "@/lib/session";
 import { useInkora } from "@/lib/store";
 import type { TattooAuction, VerifiedUser } from "@/lib/types";
 
@@ -53,14 +54,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }
 
       const users = next.users ?? local.users;
-      const sessionUserId = resolveSessionUserId(
-        local.sessionUserId,
-        remoteState.sessionUserId,
-        users,
-      );
 
-      if (sessionUserId !== local.sessionUserId) {
-        next.sessionUserId = sessionUserId;
+      if (
+        remoteState.sessionUserId &&
+        remoteState.sessionUserId !== local.sessionUserId &&
+        users.some((user) => user.id === remoteState.sessionUserId)
+      ) {
+        next.sessionUserId = remoteState.sessionUserId;
       }
 
       if (Object.keys(next).length > 0) {
@@ -72,6 +72,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <>
       <MarketingScripts />
+      <PresenceHeartbeat />
       {children}
       <ConsentBanner />
     </>

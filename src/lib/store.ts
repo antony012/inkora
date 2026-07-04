@@ -15,7 +15,13 @@ import {
 } from "./seed";
 import { nextMinBid, resolveAuctionStatus, sortBids } from "./auction";
 import { broadcastAuctionUpdate } from "./live-sync";
+import { removePresence } from "./presence";
 import { estimateQuote } from "./quote-engine";
+import {
+  hashPassword,
+  validatePasswordStrength,
+  verifyPassword,
+} from "./password";
 import type {
   Appointment,
   Artist,
@@ -60,16 +66,32 @@ interface InkoraState {
     phone: string;
     rut: string;
     documentType: DocumentType;
-  }) => { ok: boolean; error?: string; userId?: string };
+    password: string;
+  }) => Promise<{ ok: boolean; error?: string; userId?: string }>;
   loginUser: (input: {
     email: string;
-    phone?: string;
-  }) => { ok: boolean; error?: string };
+    password: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  changePassword: (input: {
+    userId: string;
+    currentPassword: string;
+    newPassword: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  resetPassword: (input: {
+    email: string;
+    phone: string;
+    rut: string;
+    newPassword: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
   logoutUser: () => void;
   submitIdentityDocument: (input: {
     userId: string;
     documentDataUrl: string;
     documentFileName: string;
+  }) => { ok: boolean; error?: string };
+  updateProfilePhoto: (input: {
+    userId: string;
+    profilePhotoUrl: string;
   }) => { ok: boolean; error?: string };
   reviewVerification: (input: {
     userId: string;
@@ -105,6 +127,23 @@ interface InkoraState {
 
 const uid = (prefix: string) =>
   `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
+
+function mergeUsersWithSeedPasswords(users: VerifiedUser[]): VerifiedUser[] {
+  return users.map((user) => {
+    if (user.passwordHash) return user;
+    const seedMatch = seedUsers.find((seed) => seed.email === user.email);
+    if (!seedMatch?.passwordHash) return user;
+    return { ...user, passwordHash: seedMatch.passwordHash };
+  });
+}
+
+function normalizePhone(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function normalizeRut(value: string) {
+  return value.replace(/[^0-9kK]/g, "").toUpperCase();
+}
 
 const initialState = {
   studio: seedStudio,
@@ -153,13 +192,19 @@ export const useInkora = create<InkoraState>()(
         }));
       },
 
-      registerUser: (input) => {
+      registerUser: async (input) => {
         const email = input.email.trim().toLowerCase();
         const exists = get().users.find((user) => user.email === email);
         if (exists) {
           return { ok: false, error: "Ya existe una cuenta con ese email." };
         }
 
+        const strength = validatePasswordStrength(input.password);
+        if (!strength.ok) {
+          return { ok: false, error: strength.errors.join(" ") };
+        }
+
+        const passwordHash = await hashPassword(input.password);
         const userId = uid("user");
         const user: VerifiedUser = {
           id: userId,
@@ -168,6 +213,7 @@ export const useInkora = create<InkoraState>()(
           phone: input.phone,
           rut: input.rut,
           documentType: input.documentType,
+          passwordHash,
           verificationStatus: "pendiente_documento",
           createdAt: new Date().toISOString(),
         };
@@ -180,31 +226,111 @@ export const useInkora = create<InkoraState>()(
         return { ok: true, userId };
       },
 
-      loginUser: ({ email, phone }) => {
+      loginUser: async ({ email, password }) => {
         const normalizedEmail = email.trim().toLowerCase();
-        const normalizedPhone = phone?.replace(/\D/g, "") ?? "";
-        const user = get().users.find((item) => {
-          if (normalizedEmail && item.email === normalizedEmail) return true;
-          if (
-            normalizedPhone &&
-            item.phone.replace(/\D/g, "") === normalizedPhone
-          ) {
-            return true;
-          }
-          return false;
-        });
+        const user = get().users.find((item) => item.email === normalizedEmail);
         if (!user) {
           return {
             ok: false,
-            error: "No encontramos tu cuenta. Regístrate para continuar.",
+            error: "Email o contraseña incorrectos.",
           };
         }
+
+        if (!user.passwordHash) {
+          return {
+            ok: false,
+            error: "Esta cuenta no tiene contraseña. Crea una cuenta nueva.",
+          };
+        }
+
+        const valid = await verifyPassword(password, user.passwordHash);
+        if (!valid) {
+          return {
+            ok: false,
+            error: "Email o contraseña incorrectos.",
+          };
+        }
+
         set({ sessionUserId: user.id });
         broadcastAuctionUpdate();
         return { ok: true };
       },
 
+      changePassword: async ({ userId, currentPassword, newPassword }) => {
+        const user = get().users.find((item) => item.id === userId);
+        if (!user?.passwordHash) {
+          return { ok: false, error: "Usuario no encontrado." };
+        }
+
+        const valid = await verifyPassword(currentPassword, user.passwordHash);
+        if (!valid) {
+          return { ok: false, error: "La contraseña actual no es correcta." };
+        }
+
+        if (currentPassword === newPassword) {
+          return {
+            ok: false,
+            error: "La nueva contraseña debe ser distinta a la actual.",
+          };
+        }
+
+        const strength = validatePasswordStrength(newPassword);
+        if (!strength.ok) {
+          return { ok: false, error: strength.errors.join(" ") };
+        }
+
+        const passwordHash = await hashPassword(newPassword);
+        set((s) => ({
+          users: s.users.map((item) =>
+            item.id === userId ? { ...item, passwordHash } : item,
+          ),
+        }));
+        broadcastAuctionUpdate();
+        return { ok: true };
+      },
+
+      resetPassword: async ({ email, phone, rut, newPassword }) => {
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = get().users.find((item) => item.email === normalizedEmail);
+        if (!user) {
+          return {
+            ok: false,
+            error: "No encontramos una cuenta con esos datos.",
+          };
+        }
+
+        if (normalizePhone(user.phone) !== normalizePhone(phone)) {
+          return {
+            ok: false,
+            error: "No encontramos una cuenta con esos datos.",
+          };
+        }
+
+        if (normalizeRut(user.rut) !== normalizeRut(rut)) {
+          return {
+            ok: false,
+            error: "No encontramos una cuenta con esos datos.",
+          };
+        }
+
+        const strength = validatePasswordStrength(newPassword);
+        if (!strength.ok) {
+          return { ok: false, error: strength.errors.join(" ") };
+        }
+
+        const passwordHash = await hashPassword(newPassword);
+        set((s) => ({
+          users: s.users.map((item) =>
+            item.id === user.id ? { ...item, passwordHash } : item,
+          ),
+        }));
+        broadcastAuctionUpdate();
+        return { ok: true };
+      },
+
       logoutUser: () => {
+        const userId = get().sessionUserId;
+        if (userId) removePresence(userId);
         set({ sessionUserId: null });
         broadcastAuctionUpdate();
       },
@@ -234,6 +360,22 @@ export const useInkora = create<InkoraState>()(
                   reviewedBy: undefined,
                 }
               : item,
+          ),
+        }));
+        broadcastAuctionUpdate();
+        return { ok: true };
+      },
+
+      updateProfilePhoto: ({ userId, profilePhotoUrl }) => {
+        const user = get().users.find((item) => item.id === userId);
+        if (!user) return { ok: false, error: "Usuario no encontrado." };
+        if (!profilePhotoUrl) {
+          return { ok: false, error: "Selecciona una imagen válida." };
+        }
+
+        set((s) => ({
+          users: s.users.map((item) =>
+            item.id === userId ? { ...item, profilePhotoUrl } : item,
           ),
         }));
         broadcastAuctionUpdate();
@@ -292,7 +434,7 @@ export const useInkora = create<InkoraState>()(
         if (!sessionUserId) {
           return {
             ok: false,
-            error: "Debes iniciar sesión y verificar tu identidad para pujar.",
+            error: "Debes iniciar sesión para pujar.",
           };
         }
 
@@ -300,27 +442,12 @@ export const useInkora = create<InkoraState>()(
         if (!user) {
           return { ok: false, error: "Sesión inválida. Vuelve a ingresar." };
         }
-        if (user.verificationStatus === "pendiente_documento") {
-          return {
-            ok: false,
-            error: "Sube tu documento de identidad para completar el acceso.",
-          };
-        }
-        if (user.verificationStatus === "en_revision") {
-          return {
-            ok: false,
-            error: "Tu identidad está en revisión. Aún no puedes pujar.",
-          };
-        }
         if (user.verificationStatus === "rechazado") {
           return {
             ok: false,
             error:
-              "Tu verificación fue rechazada. Sube un documento válido para reintentar.",
+              "Tu verificación fue rechazada. Sube un documento válido en Acceso para reintentar.",
           };
-        }
-        if (user.verificationStatus !== "verificado") {
-          return { ok: false, error: "Cuenta no verificada." };
         }
 
         const auction = get().auctions.find((item) => item.id === auctionId);
@@ -696,10 +823,13 @@ export const useInkora = create<InkoraState>()(
       },
     }),
     {
-      name: "inkora-store-v5-verify",
-      version: 5,
+      name: "inkora-store-v6-password",
+      version: 6,
       migrate: (persisted) => {
         const state = (persisted ?? {}) as Partial<InkoraState>;
+        const users = mergeUsersWithSeedPasswords(
+          state.users?.length ? state.users : seedUsers,
+        );
         return {
           ...initialState,
           ...state,
@@ -707,8 +837,8 @@ export const useInkora = create<InkoraState>()(
           artists: seedArtists,
           portfolio: seedPortfolio,
           auctions: state.auctions?.length ? state.auctions : seedAuctions,
-          users: state.users?.length ? state.users : seedUsers,
-          sessionUserId: state.sessionUserId ?? null,
+          users,
+          sessionUserId: null,
           consentPreferences: state.consentPreferences ?? initialState.consentPreferences,
           marketingEvents: state.marketingEvents ?? [],
         };
@@ -719,7 +849,11 @@ export const useInkora = create<InkoraState>()(
         state.artists = seedArtists;
         state.portfolio = seedPortfolio;
         if (!state.auctions?.length) state.auctions = seedAuctions;
-        if (!state.users?.length) state.users = seedUsers;
+        if (!state.users?.length) {
+          state.users = seedUsers;
+        } else {
+          state.users = mergeUsersWithSeedPasswords(state.users);
+        }
       },
     },
   ),

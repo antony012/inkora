@@ -22,8 +22,8 @@ import { trackMarketingEvent } from "@/lib/analytics";
 import { formatMoney, styleLabel } from "@/lib/quote-engine";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import { useInkora } from "@/lib/store";
+import { canPlaceBid, userAccessMessage } from "@/lib/user-access";
 import {
-  canBid,
   verificationBadge,
   verificationLabel,
 } from "@/lib/verification";
@@ -237,16 +237,17 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
                 </div>
               ) : !sessionUser ? (
                 <div className="rounded-2xl border border-[var(--border)] bg-[#0d0d10] p-4">
-                  <p className="font-medium">Acceso verificado requerido</p>
+                  <p className="font-medium">
+                    {userAccessMessage(null).title}
+                  </p>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">
-                    Para pujar debes iniciar sesión y subir tu documento de
-                    identidad para revisión del equipo.
+                    {userAccessMessage(null).detail}
                   </p>
                   <Link
                     href="/acceso"
                     className="btn-primary mt-4 inline-flex px-4 py-2 text-sm"
                   >
-                    Completar acceso
+                    Iniciar sesión
                   </Link>
                 </div>
               ) : (
@@ -255,7 +256,7 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
                     <div>
                       <p className="text-sm font-medium">{sessionUser.name}</p>
                       <p className="text-xs text-[var(--text-dim)]">
-                        {sessionUser.email}
+                        {userAccessMessage(sessionUser).detail}
                       </p>
                     </div>
                     <span
@@ -265,21 +266,17 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
                     </span>
                   </div>
 
-                  {!canBid(sessionUser.verificationStatus) ? (
-                    <div className="rounded-2xl border border-[#fbbf2444] bg-[#fbbf2414] p-4 text-sm text-[#fcd34d]">
-                      {sessionUser.verificationStatus === "pendiente_documento"
-                        ? "Sube tu documento de identidad para completar el login."
-                        : sessionUser.verificationStatus === "en_revision"
-                          ? "Tu identidad está en revisión. Aún no puedes pujar."
-                          : "Tu verificación fue rechazada. Vuelve a subir un documento válido."}
+                  {sessionUser.verificationStatus === "rechazado" ? (
+                    <div className="rounded-2xl border border-[#f9731644] bg-[#f9731614] p-4 text-sm text-[var(--accent-glow)]">
+                      {userAccessMessage(sessionUser).detail}
                       <Link
                         href="/acceso"
-                        className="mt-3 block text-[var(--accent-glow)] underline"
+                        className="mt-3 block underline"
                       >
-                        Ir a verificación
+                        Ir a Acceso
                       </Link>
                     </div>
-                  ) : (
+                  ) : canPlaceBid(sessionUser) ? (
                     <form onSubmit={onBid} className="space-y-3">
                       <div>
                         <label className="label">
@@ -328,7 +325,7 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
                         segundos para evitar robos de último segundo.
                       </p>
                     </form>
-                  )}
+                  ) : null}
                 </>
               )}
             </div>

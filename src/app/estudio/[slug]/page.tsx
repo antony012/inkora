@@ -16,6 +16,7 @@ import { useEffect, useMemo } from "react";
 import { DynamicStudioScene } from "@/components/3d/DynamicScenes";
 import { BrandLogo } from "@/components/BrandLogo";
 import { SocialStrip } from "@/components/SocialStrip";
+import { UserCard } from "@/components/UserCard";
 import { TikTokVideoCarousel } from "@/components/TikTokVideoCarousel";
 import { AuctionCard } from "@/components/LiveAuctionRoom";
 import { resolveAuctionStatus } from "@/lib/auction";
@@ -70,6 +71,7 @@ export default function EstudioPublicPage() {
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
         <BrandLogo href="/" variant="compact" showImage={false} />
         <div className="flex items-center gap-2">
+          <UserCard />
           <a
             href={studio.facebook}
             target="_blank"

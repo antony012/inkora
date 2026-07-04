@@ -20,16 +20,30 @@ import {
   sortBids,
 } from "@/lib/auction";
 import { formatMoney, styleLabel } from "@/lib/quote-engine";
+import { UserAvatar } from "@/components/UserAvatar";
+import { useOnlineUsers } from "@/hooks/useOnlineUsers";
 import { useInkora } from "@/lib/store";
 import {
   verificationBadge,
   verificationLabel,
 } from "@/lib/verification";
 
+function presencePageLabel(page: string) {
+  if (page.includes("/subasta")) return "Subasta en vivo";
+  if (page.includes("/reservar")) return "Reservando turno";
+  if (page.includes("/acceso")) return "Acceso / cuenta";
+  if (page.includes("/dashboard/sala-admin")) return "Panel admin";
+  if (page.includes("/dashboard")) return "Dashboard";
+  if (page.includes("/estudio")) return "Perfil del artista";
+  if (page === "/") return "Inicio";
+  return page;
+}
+
 export default function SalaAdminPage() {
   const studio = useInkora((s) => s.studio);
   const auctions = useInkora((s) => s.auctions);
   const users = useInkora((s) => s.users);
+  const onlineUsers = useOnlineUsers();
   const syncAuctionStatuses = useInkora((s) => s.syncAuctionStatuses);
   const cancelAuction = useInkora((s) => s.cancelAuction);
 
@@ -104,6 +118,9 @@ export default function SalaAdminPage() {
           </span>
           <span className="badge badge-gold">
             <Users size={12} /> {auction.viewers} en sala
+          </span>
+          <span className="badge badge-green">
+            <Users size={12} /> {onlineUsers.length} en línea
           </span>
           <span className="badge badge-amber">
             <ShieldAlert size={12} /> {pendingUsers} por verificar
@@ -206,13 +223,84 @@ export default function SalaAdminPage() {
               </p>
               <p className="mt-2">
                 {unverifiedBids} pujas históricas con identidad incompleta o en
-                revisión. Las nuevas pujas solo se aceptan si el usuario está
-                verificado.
+                revisión. Las cuentas rechazadas no pueden pujar hasta
+                revalidar su documento.
               </p>
             </div>
           </div>
         </section>
       </div>
+
+      <section className="card overflow-hidden">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">
+          <h3 className="inline-flex items-center gap-2 font-medium">
+            <Users size={16} className="text-[#34d399]" />
+            Usuarios en línea
+          </h3>
+          <span className="text-xs text-[var(--text-dim)]">
+            {onlineUsers.length} activos · últimos 45 s
+          </span>
+        </div>
+        <div className="divide-y divide-[var(--border)]">
+          {onlineUsers.length === 0 ? (
+            <p className="p-5 text-sm text-[var(--text-muted)]">
+              No hay usuarios conectados ahora. Aparecerán aquí al iniciar sesión
+              en la app pública.
+            </p>
+          ) : (
+            onlineUsers.map((online) => {
+              const user = users.find((item) => item.id === online.userId);
+              const status =
+                user?.verificationStatus ?? online.verificationStatus;
+              return (
+                <div
+                  key={online.userId}
+                  className="grid gap-3 px-5 py-4 lg:grid-cols-[1.2fr_1fr_auto] lg:items-center"
+                >
+                  <div className="flex items-center gap-3">
+                    <UserAvatar
+                      name={online.name}
+                      profilePhotoUrl={
+                        user?.profilePhotoUrl ?? online.profilePhotoUrl
+                      }
+                      verificationStatus={status}
+                      size="md"
+                    />
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex h-2 w-2 rounded-full bg-[#34d399]" />
+                        <p className="font-medium">{online.name}</p>
+                      </div>
+                      <p className="mt-1 text-xs text-[var(--text-dim)]">
+                        {online.email} · {online.phone}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-sm text-[var(--text-muted)]">
+                    <p>{presencePageLabel(online.page)}</p>
+                    <p className="text-xs text-[var(--text-dim)]">
+                      Activo{" "}
+                      {new Date(online.lastSeen).toLocaleTimeString("es-CL")}
+                    </p>
+                  </div>
+                  <div className="text-right text-xs">
+                    {user ? (
+                      <Link
+                        href="/dashboard/verificaciones"
+                        className="text-[#fb7185] hover:underline"
+                      >
+                        Ver ficha
+                      </Link>
+                    ) : (
+                      <span className="text-[var(--text-dim)]">Sesión demo</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </section>
 
       <section className="card overflow-hidden">
         <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">

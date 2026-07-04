@@ -400,7 +400,10 @@ export const verifiedUsers: VerifiedUser[] = [
     rut: "12.345.678-9",
     documentType: "cedula",
     documentFileName: "cedula-sofia.jpg",
+    profilePhotoUrl: "/artists/enderson/avatar.jpg",
     documentDataUrl: "/artists/enderson/avatar.jpg",
+    passwordHash:
+      "pbkdf2-sha256:600000:E0MasYhP/SkAwYKoYiSF9Q==:HoZ9r1OjLKaMbfVmw/+MnQYYUWafqnPqUd7Yi9n4v0c=",
     verificationStatus: "verificado",
     submittedAt: "2026-06-20T10:00:00.000Z",
     reviewedAt: "2026-06-20T12:00:00.000Z",
@@ -416,6 +419,8 @@ export const verifiedUsers: VerifiedUser[] = [
     documentType: "cedula",
     documentFileName: "cedula-diego.jpg",
     documentDataUrl: "/artists/enderson/cover.jpg",
+    passwordHash:
+      "pbkdf2-sha256:600000:v5NeVUHp23zoa8SJc3NDxg==:bjvLu/89CZsWwtlhJUxfoWALSnud1717DXrCMwV3NMg=",
     verificationStatus: "en_revision",
     submittedAt: "2026-07-03T15:00:00.000Z",
     createdAt: "2026-07-03T14:50:00.000Z",
@@ -427,6 +432,8 @@ export const verifiedUsers: VerifiedUser[] = [
     phone: "+56 9 4000 5555",
     rut: "18.222.333-4",
     documentType: "pasaporte",
+    passwordHash:
+      "pbkdf2-sha256:600000:A9CFt8z7IOfDrbOUinawMQ==:TtwDegQmqnHUBspT46iJ9toRZzTq2gzYt2fNz+Sxe9M=",
     verificationStatus: "pendiente_documento",
     createdAt: "2026-07-03T16:00:00.000Z",
   },

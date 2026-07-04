@@ -187,6 +187,8 @@ export interface VerifiedUser {
   documentType: DocumentType;
   documentDataUrl?: string;
   documentFileName?: string;
+  profilePhotoUrl?: string;
+  passwordHash: string;
   verificationStatus: VerificationStatus;
   reviewNote?: string;
   submittedAt?: string;

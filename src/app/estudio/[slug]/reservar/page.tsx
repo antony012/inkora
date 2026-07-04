@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { estimateQuote, formatMoney, styleLabel } from "@/lib/quote-engine";
+import { UserCard } from "@/components/UserCard";
+import { useSessionUser } from "@/hooks/useSessionUser";
 import { useInkora } from "@/lib/store";
 import type { BodyZone, TattooSize, TattooStyle } from "@/lib/types";
 
@@ -49,6 +51,7 @@ export default function ReservarPage() {
   const studio = useInkora((s) => s.studio);
   const artists = useInkora((s) => s.artists);
   const createBookingRequest = useInkora((s) => s.createBookingRequest);
+  const { sessionUser } = useSessionUser();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -61,6 +64,13 @@ export default function ReservarPage() {
   const [budget, setBudget] = useState("");
   const [preferredDate, setPreferredDate] = useState("");
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (!sessionUser) return;
+    setName(sessionUser.name);
+    setEmail(sessionUser.email);
+    setPhone(sessionUser.phone);
+  }, [sessionUser]);
 
   const artist = artists.find((a) => a.id === artistId) ?? artists[0];
 
@@ -128,7 +138,10 @@ export default function ReservarPage() {
 
   return (
     <div className="ink-grid min-h-screen">
-      <div className="mx-auto grid max-w-5xl gap-6 px-4 py-8 lg:grid-cols-[1.2fr_0.8fr]">
+      <header className="mx-auto flex w-full max-w-5xl items-center justify-end px-4 pt-5">
+        <UserCard />
+      </header>
+      <div className="mx-auto grid max-w-5xl gap-6 px-4 py-4 lg:grid-cols-[1.2fr_0.8fr]">
         <form onSubmit={onSubmit} className="card space-y-5 p-6">
           <div>
             <Link

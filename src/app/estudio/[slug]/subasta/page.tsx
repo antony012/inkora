@@ -6,12 +6,8 @@ import { Gavel } from "lucide-react";
 import { useEffect } from "react";
 import { LiveAuctionRoom } from "@/components/LiveAuctionRoom";
 import { SocialStrip } from "@/components/SocialStrip";
-import { useSessionUser } from "@/hooks/useSessionUser";
+import { UserCard } from "@/components/UserCard";
 import { trackPageView } from "@/lib/analytics";
-import {
-  verificationBadge,
-  verificationLabel,
-} from "@/lib/verification";
 import { useInkora } from "@/lib/store";
 
 const LEGACY_SLUGS = new Set(["nueva-temporada", "santiago-ink"]);
@@ -20,7 +16,7 @@ export default function SubastaPublicPage() {
   const params = useParams<{ slug: string }>();
   const router = useRouter();
   const studio = useInkora((s) => s.studio);
-  const { hydrated, sessionUser } = useSessionUser();
+  const hydrated = useInkora((s) => s.hydrated);
 
   useEffect(() => {
     if (LEGACY_SLUGS.has(params.slug)) {
@@ -56,20 +52,7 @@ export default function SubastaPublicPage() {
           ← {studio.name}
         </Link>
         <div className="flex flex-wrap items-center gap-2">
-          {sessionUser ? (
-            <div className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[#0d0d10] px-3 py-1.5 text-xs">
-              <span className="font-medium text-white">{sessionUser.name}</span>
-              <span
-                className={`badge ${verificationBadge(sessionUser.verificationStatus)}`}
-              >
-                {verificationLabel(sessionUser.verificationStatus)}
-              </span>
-            </div>
-          ) : (
-            <Link href="/acceso" className="btn-secondary px-3 py-1.5 text-xs">
-              Iniciar sesión
-            </Link>
-          )}
+          <UserCard />
           <span className="badge badge-rose">
             <Gavel size={12} /> Subasta en vivo
           </span>
@@ -83,8 +66,8 @@ export default function SubastaPublicPage() {
               Subasta de tatuaje en vivo
             </h1>
             <p className="mt-2 text-[var(--text-muted)]">
-              Enderson publica una pieza exclusiva. Pujas en tiempo real con
-              identidad verificada.
+              Enderson publica una pieza exclusiva. Inicia sesión para pujar en
+              tiempo real y reservar tu sesión.
             </p>
           </div>
           <SocialStrip studio={studio} />

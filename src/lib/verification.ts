@@ -18,5 +18,6 @@ export function verificationBadge(status: VerificationStatus) {
 }
 
 export function canBid(status?: VerificationStatus) {
-  return status === "verificado";
+  if (!status) return false;
+  return status !== "rechazado";
 }
