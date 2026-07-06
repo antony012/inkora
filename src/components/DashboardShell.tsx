@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 const nav = [
@@ -42,10 +42,10 @@ const nav = [
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const studio = useInkora((s) => s.studio);
-  const appointments = useInkora((s) => s.appointments);
-  const users = useInkora((s) => s.users);
-  const resetDemo = useInkora((s) => s.resetDemo);
+  const studio = useCarrizo((s) => s.studio);
+  const appointments = useCarrizo((s) => s.appointments);
+  const users = useCarrizo((s) => s.users);
+  const resetDemo = useCarrizo((s) => s.resetDemo);
   const [open, setOpen] = useState(false);
 
   const pending = appointments.filter((a) =>

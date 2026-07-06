@@ -1,8 +1,8 @@
 import type { VerificationStatus } from "./types";
 
-export const PRESENCE_STORAGE_KEY = "inkora-online-presence";
-export const PRESENCE_TICK_KEY = "inkora-presence-tick";
-const PRESENCE_CHANNEL = "inkora-presence-live";
+export const PRESENCE_STORAGE_KEY = "carrizo-online-presence";
+export const PRESENCE_TICK_KEY = "carrizo-presence-tick";
+const PRESENCE_CHANNEL = "carrizo-presence-live";
 export const ONLINE_TTL_MS = 45_000;
 
 export type PresenceEntry = {
@@ -15,6 +15,23 @@ export type PresenceEntry = {
   page: string;
   lastSeen: number;
 };
+
+export function auctionRoomPath(studioSlug: string) {
+  return `/estudio/${studioSlug}/subasta`;
+}
+
+export function isInAuctionRoom(entry: PresenceEntry, studioSlug: string) {
+  return (
+    entry.page === auctionRoomPath(studioSlug) &&
+    entry.verificationStatus === "verificado"
+  );
+}
+
+export function getAuctionRoomUsers(studioSlug: string, now = Date.now()) {
+  return getOnlineUsers(now).filter((entry) =>
+    isInAuctionRoom(entry, studioSlug),
+  );
+}
 
 function readMap(): Record<string, PresenceEntry> {
   if (typeof window === "undefined") return {};

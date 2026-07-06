@@ -1,8 +1,8 @@
 import { mergeUsers, resolveSessionUserId } from "./session";
 
-const CHANNEL = "inkora-auction-live";
-export const AUCTION_STORAGE_KEY = "inkora-store-v5-verify";
-const TICK_KEY = "inkora-auction-tick";
+const CHANNEL = "carrizo-auction-live";
+export const AUCTION_STORAGE_KEY = "carrizo-store-v7";
+const TICK_KEY = "carrizo-auction-tick";
 
 export function broadcastAuctionUpdate() {
   if (typeof window === "undefined") return;

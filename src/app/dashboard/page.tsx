@@ -13,13 +13,13 @@ import { es } from "date-fns/locale";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatMoney } from "@/lib/quote-engine";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 
 export default function DashboardPage() {
-  const appointments = useInkora((s) => s.appointments);
-  const clients = useInkora((s) => s.clients);
-  const payments = useInkora((s) => s.payments);
-  const artists = useInkora((s) => s.artists);
+  const appointments = useCarrizo((s) => s.appointments);
+  const clients = useCarrizo((s) => s.clients);
+  const payments = useCarrizo((s) => s.payments);
+  const artists = useCarrizo((s) => s.artists);
 
   const today = new Date();
   const todayApts = appointments

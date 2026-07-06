@@ -1,13 +1,13 @@
 "use client";
 
 import { formatMoney } from "@/lib/quote-engine";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 
 export default function ReportesPage() {
-  const appointments = useInkora((s) => s.appointments);
-  const payments = useInkora((s) => s.payments);
-  const artists = useInkora((s) => s.artists);
-  const clients = useInkora((s) => s.clients);
+  const appointments = useCarrizo((s) => s.appointments);
+  const payments = useCarrizo((s) => s.payments);
+  const artists = useCarrizo((s) => s.artists);
+  const clients = useCarrizo((s) => s.clients);
 
   const completed = appointments.filter((a) => a.status === "completado").length;
   const cancelled = appointments.filter((a) =>
@@ -93,7 +93,7 @@ export default function ReportesPage() {
           </div>
           <p className="mt-4 text-sm text-[var(--text-dim)]">
             Insight: cobrar seña antes de bloquear agenda es el mayor reductor de
-            no-shows. Inkora lo hace nativo.
+            no-shows. Carrizo lo hace nativo.
           </p>
         </section>
       </div>

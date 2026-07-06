@@ -3,12 +3,12 @@
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { formatMoney } from "@/lib/quote-engine";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 
 export default function CajaPage() {
-  const payments = useInkora((s) => s.payments);
-  const clients = useInkora((s) => s.clients);
-  const artists = useInkora((s) => s.artists);
+  const payments = useCarrizo((s) => s.payments);
+  const clients = useCarrizo((s) => s.clients);
+  const artists = useCarrizo((s) => s.artists);
 
   const total = payments.reduce((sum, p) => sum + p.amount, 0);
   const byType = payments.reduce<Record<string, number>>((acc, p) => {

@@ -20,9 +20,11 @@ import {
 } from "@/lib/auction";
 import { trackMarketingEvent } from "@/lib/analytics";
 import { formatMoney, styleLabel } from "@/lib/quote-engine";
+import { LiveRoomAudience } from "@/components/LiveRoomAudience";
 import { useSessionUser } from "@/hooks/useSessionUser";
-import { useInkora } from "@/lib/store";
-import { canPlaceBid, userAccessMessage } from "@/lib/user-access";
+import { useAuctionRoomUsers } from "@/hooks/useAuctionRoomUsers";
+import { useCarrizo } from "@/lib/store";
+import { auctionAccessMessage, canPlaceBid } from "@/lib/user-access";
 import {
   verificationBadge,
   verificationLabel,
@@ -37,10 +39,11 @@ function statusBadge(status: ReturnType<typeof resolveAuctionStatus>) {
 }
 
 export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
-  const auctions = useInkora((s) => s.auctions);
-  const placeBid = useInkora((s) => s.placeBid);
-  const syncAuctionStatuses = useInkora((s) => s.syncAuctionStatuses);
-  const bumpAuctionViewers = useInkora((s) => s.bumpAuctionViewers);
+  const auctions = useCarrizo((s) => s.auctions);
+  const placeBid = useCarrizo((s) => s.placeBid);
+  const syncAuctionStatuses = useCarrizo((s) => s.syncAuctionStatuses);
+  const studioSlug = useCarrizo((s) => s.studio.slug);
+  const roomUsers = useAuctionRoomUsers(studioSlug);
   const { hydrated, sessionUser } = useSessionUser();
 
   const auction = useMemo(() => {
@@ -66,7 +69,6 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
 
   useEffect(() => {
     if (!auction) return;
-    bumpAuctionViewers(auction.id);
     trackMarketingEvent("ViewContent", {
       source: "studio",
       metadata: { section: "live_auction", auctionId: auction.id },
@@ -168,9 +170,7 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
               ) : null}
               {auctionStatusLabel(status)}
             </span>
-            <span className="badge badge-gold">
-              <Users size={12} /> {auction.viewers} en sala
-            </span>
+            <LiveRoomAudience compact />
           </div>
           <div className="absolute inset-x-0 bottom-0 p-5">
             <p className="text-sm text-white/70">
@@ -185,6 +185,7 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
       </section>
 
       <section className="space-y-4">
+        <LiveRoomAudience />
         <div
           className={`card p-5 transition ${
             pulse ? "border-[#e11d48] shadow-[0_0_40px_#e11d4833]" : ""
@@ -238,10 +239,10 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
               ) : !sessionUser ? (
                 <div className="rounded-2xl border border-[var(--border)] bg-[#0d0d10] p-4">
                   <p className="font-medium">
-                    {userAccessMessage(null).title}
+                    {auctionAccessMessage(null).title}
                   </p>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">
-                    {userAccessMessage(null).detail}
+                    {auctionAccessMessage(null).detail}
                   </p>
                   <Link
                     href="/acceso"
@@ -256,7 +257,7 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
                     <div>
                       <p className="text-sm font-medium">{sessionUser.name}</p>
                       <p className="text-xs text-[var(--text-dim)]">
-                        {userAccessMessage(sessionUser).detail}
+                        {auctionAccessMessage(sessionUser).detail}
                       </p>
                     </div>
                     <span
@@ -266,9 +267,9 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
                     </span>
                   </div>
 
-                  {sessionUser.verificationStatus === "rechazado" ? (
-                    <div className="rounded-2xl border border-[#f9731644] bg-[#f9731614] p-4 text-sm text-[var(--accent-glow)]">
-                      {userAccessMessage(sessionUser).detail}
+                  {!canPlaceBid(sessionUser) ? (
+                    <div className="rounded-2xl border border-[#fbbf2444] bg-[#fbbf2414] p-4 text-sm text-[#fcd34d]">
+                      {auctionAccessMessage(sessionUser).detail}
                       <Link
                         href="/acceso"
                         className="mt-3 block underline"
@@ -276,7 +277,7 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
                         Ir a Acceso
                       </Link>
                     </div>
-                  ) : canPlaceBid(sessionUser) ? (
+                  ) : (
                     <form onSubmit={onBid} className="space-y-3">
                       <div>
                         <label className="label">
@@ -325,7 +326,7 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
                         segundos para evitar robos de último segundo.
                       </p>
                     </form>
-                  ) : null}
+                  )}
                 </>
               )}
             </div>
@@ -416,7 +417,7 @@ export function AuctionCard({
           {formatMoney(auction.currentBid)}
         </p>
         <p className="mt-1 text-xs text-[var(--text-dim)]">
-          {auction.bids.length} ofertas · {auction.viewers} en sala
+          {auction.bids.length} ofertas
         </p>
       </div>
     </Link>

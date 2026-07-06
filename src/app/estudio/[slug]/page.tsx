@@ -14,26 +14,27 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { DynamicStudioScene } from "@/components/3d/DynamicScenes";
-import { BrandLogo } from "@/components/BrandLogo";
+import { CarrizoArtLogo } from "@/components/CarrizoArtLogo";
 import { SocialStrip } from "@/components/SocialStrip";
 import { UserCard } from "@/components/UserCard";
 import { TikTokVideoCarousel } from "@/components/TikTokVideoCarousel";
 import { AuctionCard } from "@/components/LiveAuctionRoom";
+import { PubgRouletteTeaser } from "@/components/PubgRoulette";
 import { resolveAuctionStatus } from "@/lib/auction";
 import { trackMarketingEvent, trackPageView } from "@/lib/analytics";
 import { styleLabel } from "@/lib/quote-engine";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 
 const LEGACY_SLUGS = new Set(["nueva-temporada", "santiago-ink"]);
 
 export default function EstudioPublicPage() {
   const params = useParams<{ slug: string }>();
   const router = useRouter();
-  const studio = useInkora((s) => s.studio);
-  const artists = useInkora((s) => s.artists);
-  const portfolio = useInkora((s) => s.portfolio);
-  const auctions = useInkora((s) => s.auctions);
-  const hydrated = useInkora((s) => s.hydrated);
+  const studio = useCarrizo((s) => s.studio);
+  const artists = useCarrizo((s) => s.artists);
+  const portfolio = useCarrizo((s) => s.portfolio);
+  const auctions = useCarrizo((s) => s.auctions);
+  const hydrated = useCarrizo((s) => s.hydrated);
   const artist = artists[0];
   const liveAuction = useMemo(
     () =>
@@ -69,7 +70,13 @@ export default function EstudioPublicPage() {
   return (
     <div className="ink-grid min-h-screen">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
-        <BrandLogo href="/" variant="compact" showImage={false} />
+        <CarrizoArtLogo
+          href="/"
+          variant="neon"
+          size="md"
+          align="left"
+          showGlow
+        />
         <div className="flex items-center gap-2">
           <UserCard />
           <a
@@ -267,6 +274,10 @@ export default function EstudioPublicPage() {
             </div>
           </section>
         ) : null}
+
+        <section className="mt-10">
+          <PubgRouletteTeaser href={`/estudio/${studio.slug}/ruleta`} />
+        </section>
 
         <section className="mt-10">
           <TikTokVideoCarousel profileUrl={studio.tiktokUrl} />

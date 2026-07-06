@@ -1,9 +1,95 @@
 import type {
   BodyZone,
   QuoteResult,
+  SessionPackageId,
   TattooSize,
   TattooStyle,
 } from "./types";
+
+export const SESSION_PACKAGES: Record<
+  SessionPackageId,
+  {
+    label: string;
+    price: number;
+    hoursMin: number;
+    hoursMax: number;
+    estimatedHours: number;
+    description: string;
+  }
+> = {
+  una_hora: {
+    label: "1 hora",
+    price: 60_000,
+    hoursMin: 1,
+    hoursMax: 1,
+    estimatedHours: 1,
+    description: "Perfecta para mini piezas, símbolos o retoques puntuales.",
+  },
+  corta: {
+    label: "Sesión corta",
+    price: 150_000,
+    hoursMin: 2,
+    hoursMax: 3,
+    estimatedHours: 2.5,
+    description: "Ideal para piezas pequeñas o retoques.",
+  },
+  estandar: {
+    label: "Sesión estándar",
+    price: 200_000,
+    hoursMin: 3,
+    hoursMax: 6,
+    estimatedHours: 4.5,
+    description: "La opción más elegida para un diseño completo.",
+  },
+  larga: {
+    label: "Sesión larga",
+    price: 300_000,
+    hoursMin: 6,
+    hoursMax: 10,
+    estimatedHours: 8,
+    description: "Para trabajos extensos o alta cobertura.",
+  },
+};
+
+export function sessionPackageLabel(id: SessionPackageId): string {
+  return SESSION_PACKAGES[id].label;
+}
+
+export function sessionHoursLabel(id: SessionPackageId): string {
+  const pkg = SESSION_PACKAGES[id];
+  if (pkg.hoursMin === pkg.hoursMax) return `${pkg.hoursMin} h`;
+  return `${pkg.hoursMin}–${pkg.hoursMax} h`;
+}
+
+export function quoteSessionPackage(
+  sessionPackage: SessionPackageId,
+  depositPercent: number,
+): QuoteResult {
+  const pkg = SESSION_PACKAGES[sessionPackage];
+  const depositAmount =
+    Math.round((pkg.price * depositPercent) / 100 / 1000) * 1000;
+
+  return {
+    estimatedHours: pkg.estimatedHours,
+    minPrice: pkg.price,
+    maxPrice: pkg.price,
+    suggestedPrice: pkg.price,
+    depositAmount,
+    complexity:
+      sessionPackage === "larga"
+        ? "alta"
+        : sessionPackage === "estandar"
+          ? "media"
+          : sessionPackage === "corta"
+            ? "baja"
+            : "baja",
+    factors: [
+      `${pkg.label}: ${pkg.hoursMin} a ${pkg.hoursMax} horas de trabajo`,
+      pkg.description,
+      "Precio fijo por tipo de sesión en CLP",
+    ],
+  };
+}
 
 const SIZE_HOURS: Record<TattooSize, number> = {
   pequeño: 1.5,
@@ -86,9 +172,9 @@ export function estimateQuote(input: {
 }
 
 export function formatMoney(amount: number): string {
-  return new Intl.NumberFormat("es-AR", {
+  return new Intl.NumberFormat("es-CL", {
     style: "currency",
-    currency: "ARS",
+    currency: "CLP",
     maximumFractionDigits: 0,
   }).format(amount);
 }

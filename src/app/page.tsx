@@ -21,7 +21,7 @@ const features = [
   {
     icon: Sparkles,
     title: "Cotización inteligente",
-    text: "Estima horas y precio según estilo, zona y tamaño. Vos aprobás. El cliente paga la seña.",
+    text: "Sesiones corta, estándar o larga con precio fijo en CLP. El cliente elige, vos confirmás y cobrás la seña.",
   },
   {
     icon: Wallet,
@@ -46,13 +46,13 @@ const features = [
 ];
 
 const comparisons = [
-  { label: "Hecho para tatuadores (no salones)", inkora: true, others: false },
-  { label: "Cotización por estilo / zona / tamaño", inkora: true, others: false },
-  { label: "Página pública + portafolio", inkora: true, others: true },
-  { label: "Consentimientos digitales", inkora: true, others: true },
-  { label: "Señas y caja integradas", inkora: true, others: true },
-  { label: "UX en español para LATAM", inkora: true, others: false },
-  { label: "Sin comisión por reserva", inkora: true, others: false },
+  { label: "Hecho para tatuadores (no salones)", carrizo: true, others: false },
+  { label: "Cotización por sesión (corta / estándar / larga)", carrizo: true, others: false },
+  { label: "Página pública + portafolio", carrizo: true, others: true },
+  { label: "Consentimientos digitales", carrizo: true, others: true },
+  { label: "Señas y caja integradas", carrizo: true, others: true },
+  { label: "UX en español para LATAM", carrizo: true, others: false },
+  { label: "Sin comisión por reserva", carrizo: true, others: false },
 ];
 
 export default function HomePage() {
@@ -61,9 +61,9 @@ export default function HomePage() {
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 lg:px-6">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#e11d48] to-[#9f1239] font-bold">
-            I
+            C
           </div>
-          <span className="text-lg font-semibold tracking-wide">Inkora</span>
+          <span className="text-lg font-semibold tracking-wide">Carrizo</span>
         </div>
         <div className="flex items-center gap-3">
           <Link
@@ -88,7 +88,7 @@ export default function HomePage() {
               El sistema operativo del estudio de tatuajes.
             </h1>
             <p className="mt-5 max-w-2xl text-lg text-[var(--text-muted)]">
-              Dejá de perder turnos en WhatsApp. Inkora centraliza solicitudes,
+              Dejá de perder turnos en WhatsApp. Carrizo centraliza solicitudes,
               cotización inteligente, señas, agenda, consentimientos, CRM y caja
               en una sola plataforma pensada para tatuadores.
             </p>
@@ -132,7 +132,7 @@ export default function HomePage() {
               </h2>
               <p className="mt-3 text-[var(--text-muted)]">
                 Analizamos Porter, TATTOOX, SesionInk, Studioapp y Booksy.
-                Inkora une lo mejor y elimina la fricción del día a día.
+                Carrizo une lo mejor y elimina la fricción del día a día.
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -158,12 +158,12 @@ export default function HomePage() {
           <div className="grid items-start gap-8 lg:grid-cols-2">
             <div>
               <h2 className="text-3xl font-semibold tracking-tight">
-                Por qué Inkora gana
+                Por qué Carrizo gana
               </h2>
               <p className="mt-3 text-[var(--text-muted)]">
                 Las apps genéricas de salones no entienden sesiones de 4 horas,
                 señas del 30%, zonas sensibles ni consentimientos sanitarios.
-                Inkora sí.
+                Carrizo sí.
               </p>
               <div className="mt-6 space-y-3">
                 {[
@@ -184,7 +184,7 @@ export default function HomePage() {
             <div className="card overflow-hidden">
               <div className="grid grid-cols-3 border-b border-[var(--border)] bg-[#121216] px-4 py-3 text-xs font-medium text-[var(--text-muted)]">
                 <span>Capacidad</span>
-                <span className="text-center text-[var(--accent-glow)]">Inkora</span>
+                <span className="text-center text-[var(--accent-glow)]">Carrizo</span>
                 <span className="text-center">Otras</span>
               </div>
               {comparisons.map((row) => (
@@ -194,7 +194,7 @@ export default function HomePage() {
                 >
                   <span className="pr-2 text-[var(--text-muted)]">{row.label}</span>
                   <span className="text-center text-[#6ee7b7]">
-                    {row.inkora ? "✓" : "—"}
+                    {row.carrizo ? "✓" : "—"}
                   </span>
                   <span className="text-center text-[var(--text-dim)]">
                     {row.others ? "✓" : "—"}
@@ -237,7 +237,7 @@ export default function HomePage() {
       </main>
 
       <footer className="border-t border-[var(--border)] py-8 text-center text-sm text-[var(--text-dim)]">
-        Inkora · Software para estudios de tatuaje · Nueva Temporada
+        Carrizo · Software para estudios de tatuaje · Enderson Carrizo
       </footer>
     </div>
   );

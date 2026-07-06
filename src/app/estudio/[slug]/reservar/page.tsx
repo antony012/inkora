@@ -3,11 +3,25 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { estimateQuote, formatMoney, styleLabel } from "@/lib/quote-engine";
+import {
+  formatMoney,
+  quoteSessionPackage,
+  SESSION_PACKAGES,
+  sessionHoursLabel,
+  sessionPackageLabel,
+  styleLabel,
+} from "@/lib/quote-engine";
 import { UserCard } from "@/components/UserCard";
 import { useSessionUser } from "@/hooks/useSessionUser";
-import { useInkora } from "@/lib/store";
-import type { BodyZone, TattooSize, TattooStyle } from "@/lib/types";
+import { useCarrizo } from "@/lib/store";
+import type { BodyZone, SessionPackageId, TattooSize, TattooStyle } from "@/lib/types";
+
+const sessionPackages: SessionPackageId[] = [
+  "una_hora",
+  "corta",
+  "estandar",
+  "larga",
+];
 
 const styles: TattooStyle[] = [
   "realismo",
@@ -48,9 +62,9 @@ const sizes: TattooSize[] = [
 export default function ReservarPage() {
   const params = useParams<{ slug: string }>();
   const router = useRouter();
-  const studio = useInkora((s) => s.studio);
-  const artists = useInkora((s) => s.artists);
-  const createBookingRequest = useInkora((s) => s.createBookingRequest);
+  const studio = useCarrizo((s) => s.studio);
+  const artists = useCarrizo((s) => s.artists);
+  const createBookingRequest = useCarrizo((s) => s.createBookingRequest);
   const { sessionUser } = useSessionUser();
 
   const [name, setName] = useState("");
@@ -60,6 +74,8 @@ export default function ReservarPage() {
   const [style, setStyle] = useState<TattooStyle>("fine_line");
   const [zone, setZone] = useState<BodyZone>("antebrazo");
   const [size, setSize] = useState<TattooSize>("mediano");
+  const [sessionPackage, setSessionPackage] =
+    useState<SessionPackageId>("estandar");
   const [description, setDescription] = useState("");
   const [budget, setBudget] = useState("");
   const [preferredDate, setPreferredDate] = useState("");
@@ -75,15 +91,8 @@ export default function ReservarPage() {
   const artist = artists.find((a) => a.id === artistId) ?? artists[0];
 
   const quote = useMemo(() => {
-    if (!artist) return null;
-    return estimateQuote({
-      style,
-      zone,
-      size,
-      hourlyRate: artist.hourlyRate,
-      depositPercent: studio.depositPercent,
-    });
-  }, [artist, style, zone, size, studio.depositPercent]);
+    return quoteSessionPackage(sessionPackage, studio.depositPercent);
+  }, [sessionPackage, studio.depositPercent]);
 
   if (params.slug !== studio.slug) {
     return (
@@ -103,6 +112,7 @@ export default function ReservarPage() {
       style,
       zone,
       size,
+      sessionPackage,
       description,
       budget: budget ? Number(budget) : undefined,
       preferredDate: preferredDate || undefined,
@@ -117,8 +127,9 @@ export default function ReservarPage() {
           <span className="badge badge-green mb-4">Solicitud enviada</span>
           <h1 className="text-2xl font-semibold">¡Listo!</h1>
           <p className="mt-3 text-[var(--text-muted)]">
-            El estudio recibió tu pedido con cotización estimada. Te van a
-            confirmar precio final y seña para bloquear el turno.
+            El estudio recibió tu pedido con el precio de{" "}
+            {sessionPackageLabel(sessionPackage).toLowerCase()}. Te van a
+            confirmar la seña para bloquear el turno.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link href={`/estudio/${studio.slug}`} className="btn-secondary px-5 py-2.5">
@@ -141,8 +152,9 @@ export default function ReservarPage() {
       <header className="mx-auto flex w-full max-w-5xl items-center justify-end px-4 pt-5">
         <UserCard />
       </header>
-      <div className="mx-auto grid max-w-5xl gap-6 px-4 py-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <form onSubmit={onSubmit} className="card space-y-5 p-6">
+      <div className="mx-auto max-w-5xl px-4 py-4">
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <form onSubmit={onSubmit} className="card space-y-5 p-6">
           <div>
             <Link
               href={`/estudio/${studio.slug}`}
@@ -195,6 +207,42 @@ export default function ReservarPage() {
             <p className="text-sm text-[var(--text-muted)]">
               {artist?.role ?? "Tatuajes artísticos"}
             </p>
+          </div>
+
+          <div>
+            <label className="label">Tipo de sesión</label>
+            <p className="mb-3 text-sm text-[var(--text-muted)]">
+              Elegí el bloque de tiempo que mejor calza con tu pieza. Precio fijo en CLP.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {sessionPackages.map((id) => {
+                const pkg = SESSION_PACKAGES[id];
+                const selected = sessionPackage === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setSessionPackage(id)}
+                    className={`rounded-2xl border p-4 text-left transition ${
+                      selected
+                        ? "border-[#d4a853] bg-[#d4a85314] ring-1 ring-[#d4a85366]"
+                        : "border-[var(--border)] bg-[#0d0d10] hover:border-[var(--border-strong)]"
+                    }`}
+                  >
+                    <p className="text-sm font-medium">{pkg.label}</p>
+                    <p className="mt-1 text-lg font-semibold text-[#d4a853]">
+                      {formatMoney(pkg.price)}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
+                      {sessionHoursLabel(id)}
+                    </p>
+                    <p className="mt-2 text-xs leading-relaxed text-[var(--text-dim)]">
+                      {pkg.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -284,7 +332,9 @@ export default function ReservarPage() {
           <p className="text-xs uppercase tracking-wide text-[var(--text-dim)]">
             Cotización inteligente
           </p>
-          <h2 className="mt-2 text-xl font-semibold">Estimación Inkora</h2>
+          <h2 className="mt-2 text-xl font-semibold">
+            {sessionPackageLabel(sessionPackage)}
+          </h2>
           {quote ? (
             <div className="mt-5 space-y-4">
               <div>
@@ -292,14 +342,13 @@ export default function ReservarPage() {
                   {formatMoney(quote.suggestedPrice)}
                 </p>
                 <p className="text-sm text-[var(--text-muted)]">
-                  Rango {formatMoney(quote.minPrice)} –{" "}
-                  {formatMoney(quote.maxPrice)}
+                  Precio fijo · {sessionHoursLabel(sessionPackage)}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-xl bg-[#0d0d10] p-3">
-                  <p className="text-[var(--text-dim)]">Horas</p>
-                  <p className="font-medium">{quote.estimatedHours}h</p>
+                  <p className="text-[var(--text-dim)]">Duración</p>
+                  <p className="font-medium">{sessionHoursLabel(sessionPackage)}</p>
                 </div>
                 <div className="rounded-xl bg-[#0d0d10] p-3">
                   <p className="text-[var(--text-dim)]">Seña ({studio.depositPercent}%)</p>
@@ -317,11 +366,12 @@ export default function ReservarPage() {
                 ))}
               </ul>
               <p className="text-xs text-[var(--text-dim)]">
-                El artista aprueba el precio final. La seña confirma el turno.
+                Pagás la seña para confirmar el turno. El saldo se abona el día de la sesión.
               </p>
             </div>
           ) : null}
         </aside>
+        </div>
       </div>
     </div>
   );

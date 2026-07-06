@@ -5,12 +5,12 @@ import { es } from "date-fns/locale";
 import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { formatMoney } from "@/lib/quote-engine";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 import { initials } from "@/lib/utils";
 
 export default function ClientesPage() {
-  const clients = useInkora((s) => s.clients);
-  const appointments = useInkora((s) => s.appointments);
+  const clients = useCarrizo((s) => s.clients);
+  const appointments = useCarrizo((s) => s.appointments);
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {

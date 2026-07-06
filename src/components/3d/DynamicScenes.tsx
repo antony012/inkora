@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { SceneFallback } from "./SceneFallback";
 
-export const DynamicHeroScene = dynamic(() => import("./InkoraHeroScene"), {
+export const DynamicHeroScene = dynamic(() => import("./CarrizoHeroScene"), {
   ssr: false,
   loading: () => <SceneFallback label="Cargando experiencia 3D" />,
 });

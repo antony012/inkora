@@ -1,3 +1,8 @@
+export const PLATFORM = {
+  name: "Carrizo",
+  slug: "carrizo",
+} as const;
+
 export const BRAND = {
   name: "Enderson Carrizo",
   tagline: "Tatuajes artísticos",

@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 
 export function useSessionUser() {
-  const hydrated = useInkora((s) => s.hydrated);
-  const sessionUserId = useInkora((s) => s.sessionUserId);
-  const users = useInkora((s) => s.users);
+  const hydrated = useCarrizo((s) => s.hydrated);
+  const sessionUserId = useCarrizo((s) => s.sessionUserId);
+  const users = useCarrizo((s) => s.users);
 
   const sessionUser = useMemo(() => {
     if (!hydrated || !sessionUserId) return null;

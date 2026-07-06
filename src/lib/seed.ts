@@ -407,7 +407,7 @@ export const verifiedUsers: VerifiedUser[] = [
     verificationStatus: "verificado",
     submittedAt: "2026-06-20T10:00:00.000Z",
     reviewedAt: "2026-06-20T12:00:00.000Z",
-    reviewedBy: "Equipo Inkora",
+    reviewedBy: "Equipo Carrizo",
     createdAt: "2026-06-19T10:00:00.000Z",
   },
   {

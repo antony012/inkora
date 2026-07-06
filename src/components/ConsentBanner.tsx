@@ -3,11 +3,11 @@
 import { ShieldCheck, X } from "lucide-react";
 import { useState } from "react";
 import { trackMarketingEvent } from "@/lib/analytics";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 
 export function ConsentBanner() {
-  const preferences = useInkora((s) => s.consentPreferences);
-  const setConsentPreferences = useInkora((s) => s.setConsentPreferences);
+  const preferences = useCarrizo((s) => s.consentPreferences);
+  const setConsentPreferences = useCarrizo((s) => s.setConsentPreferences);
   const [open, setOpen] = useState(!preferences.decidedAt);
 
   if (!open || preferences.decidedAt) return null;

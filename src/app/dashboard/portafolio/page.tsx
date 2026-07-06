@@ -2,11 +2,11 @@
 
 import Image from "next/image";
 import { styleLabel } from "@/lib/quote-engine";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 
 export default function PortafolioPage() {
-  const portfolio = useInkora((s) => s.portfolio);
-  const artists = useInkora((s) => s.artists);
+  const portfolio = useCarrizo((s) => s.portfolio);
+  const artists = useCarrizo((s) => s.artists);
 
   return (
     <div className="space-y-6 animate-fade-up">

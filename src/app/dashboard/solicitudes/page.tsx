@@ -2,17 +2,22 @@
 
 import Link from "next/link";
 import { CheckCircle2, Sparkles, Wallet } from "lucide-react";
-import { formatMoney, styleLabel } from "@/lib/quote-engine";
-import { useInkora } from "@/lib/store";
+import {
+  formatMoney,
+  sessionHoursLabel,
+  sessionPackageLabel,
+  styleLabel,
+} from "@/lib/quote-engine";
+import { useCarrizo } from "@/lib/store";
 import { StatusBadge } from "@/components/StatusBadge";
 
 export default function SolicitudesPage() {
-  const appointments = useInkora((s) => s.appointments);
-  const clients = useInkora((s) => s.clients);
-  const artists = useInkora((s) => s.artists);
-  const approveQuote = useInkora((s) => s.approveQuote);
-  const markDepositPaid = useInkora((s) => s.markDepositPaid);
-  const updateAppointmentStatus = useInkora((s) => s.updateAppointmentStatus);
+  const appointments = useCarrizo((s) => s.appointments);
+  const clients = useCarrizo((s) => s.clients);
+  const artists = useCarrizo((s) => s.artists);
+  const approveQuote = useCarrizo((s) => s.approveQuote);
+  const markDepositPaid = useCarrizo((s) => s.markDepositPaid);
+  const updateAppointmentStatus = useCarrizo((s) => s.updateAppointmentStatus);
 
   const pipeline = appointments
     .filter((a) =>
@@ -56,6 +61,9 @@ export default function SolicitudesPage() {
                       <StatusBadge status={apt.status} />
                     </div>
                     <p className="text-sm text-[var(--text-muted)]">
+                      {apt.sessionPackage
+                        ? `${sessionPackageLabel(apt.sessionPackage)} · `
+                        : ""}
                       {styleLabel(apt.style)} · {apt.zone} · {apt.size} ·{" "}
                       {artist?.name}
                     </p>
@@ -73,14 +81,16 @@ export default function SolicitudesPage() {
 
                   <div className="min-w-[220px] rounded-xl border border-[var(--border)] bg-[#0d0d10] p-4">
                     <p className="text-xs uppercase tracking-wide text-[var(--text-dim)]">
-                      Cotización Inkora
+                      Cotización Carrizo
                     </p>
                     <p className="mt-1 text-2xl font-semibold text-[#d4a853]">
                       {formatMoney(apt.quotedPrice)}
                     </p>
                     <p className="mt-1 text-sm text-[var(--text-muted)]">
-                      {apt.estimatedHours}h estimadas · Seña{" "}
-                      {formatMoney(apt.depositAmount)}
+                      {apt.sessionPackage
+                        ? `${sessionHoursLabel(apt.sessionPackage)} · `
+                        : `${apt.estimatedHours}h estimadas · `}
+                      Seña {formatMoney(apt.depositAmount)}
                     </p>
                   </div>
                 </div>

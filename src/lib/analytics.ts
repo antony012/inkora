@@ -1,6 +1,6 @@
 "use client";
 
-import { useInkora } from "./store";
+import { useCarrizo } from "./store";
 import type { MarketingEventName, MarketingEvent } from "./types";
 
 declare global {
@@ -52,7 +52,7 @@ export function trackMarketingEvent(
 ) {
   if (typeof window === "undefined") return;
 
-  const state = useInkora.getState();
+  const state = useCarrizo.getState();
   const eventId = createEventId(eventName);
   const path = window.location.pathname;
   const eventPayload = {

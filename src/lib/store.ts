@@ -16,12 +16,13 @@ import {
 import { nextMinBid, resolveAuctionStatus, sortBids } from "./auction";
 import { broadcastAuctionUpdate } from "./live-sync";
 import { removePresence } from "./presence";
-import { estimateQuote } from "./quote-engine";
+import { quoteSessionPackage } from "./quote-engine";
 import {
   hashPassword,
   validatePasswordStrength,
   verifyPassword,
 } from "./password";
+import { LEGACY_STUDIO_ADMIN_EMAIL, STUDIO_ADMIN_EMAIL } from "./auth";
 import type {
   Appointment,
   Artist,
@@ -40,7 +41,7 @@ import type {
   VerifiedUser,
 } from "./types";
 
-interface InkoraState {
+interface CarrizoState {
   studio: Studio;
   artists: Artist[];
   clients: Client[];
@@ -71,7 +72,8 @@ interface InkoraState {
   loginUser: (input: {
     email: string;
     password: string;
-  }) => Promise<{ ok: boolean; error?: string }>;
+  }) => Promise<{ ok: boolean; error?: string; isStudioAdmin?: boolean }>;
+  ensureStudioAdmin: () => Promise<void>;
   changePassword: (input: {
     userId: string;
     currentPassword: string;
@@ -119,6 +121,13 @@ interface InkoraState {
     data: { signatureData: string; healthDeclaration: string },
   ) => void;
   createConsentForAppointment: (appointmentId: string) => string;
+  createConsent: (input: {
+    clientId: string;
+    clientName: string;
+    appointmentId?: string;
+    sessionTitle?: string;
+    sessionAt?: string;
+  }) => { ok: boolean; error?: string; consentId?: string };
   updateAppointmentStatus: (
     appointmentId: string,
     status: Appointment["status"],
@@ -160,7 +169,7 @@ const initialState = {
   sessionUserId: null as string | null,
 };
 
-export const useInkora = create<InkoraState>()(
+export const useCarrizo = create<CarrizoState>()(
   persist(
     (set, get) => ({
       ...initialState,
@@ -253,7 +262,65 @@ export const useInkora = create<InkoraState>()(
 
         set({ sessionUserId: user.id });
         broadcastAuctionUpdate();
-        return { ok: true };
+        return { ok: true, isStudioAdmin: user.role === "studio_admin" };
+      },
+
+      ensureStudioAdmin: async () => {
+        const state = get();
+        const email = STUDIO_ADMIN_EMAIL.toLowerCase();
+        const legacy = state.users.find(
+          (user) => user.email === LEGACY_STUDIO_ADMIN_EMAIL.toLowerCase(),
+        );
+        const existing = state.users.find((user) => user.email === email);
+        const passwordHash =
+          existing?.passwordHash ??
+          legacy?.passwordHash ??
+          (await hashPassword("Enderson2026!"));
+
+        const admin: VerifiedUser = {
+          id: existing?.id ?? legacy?.id ?? "user-studio-admin",
+          name: state.studio.name,
+          email,
+          phone: state.studio.phone,
+          rut: legacy?.rut ?? "—",
+          documentType: "cedula",
+          profilePhotoUrl: state.studio.avatarUrl,
+          passwordHash,
+          role: "studio_admin",
+          verificationStatus: "verificado",
+          createdAt:
+            existing?.createdAt ??
+            legacy?.createdAt ??
+            new Date().toISOString(),
+        };
+
+        if (
+          existing &&
+          existing.role === "studio_admin" &&
+          existing.passwordHash &&
+          existing.email === email
+        ) {
+          if (legacy && legacy.id !== existing.id) {
+            set((s) => ({
+              users: s.users.filter(
+                (user) => user.email !== LEGACY_STUDIO_ADMIN_EMAIL.toLowerCase(),
+              ),
+            }));
+          }
+          return;
+        }
+
+        set((s) => ({
+          users: [
+            admin,
+            ...s.users.filter(
+              (user) =>
+                user.email !== email &&
+                user.email !== LEGACY_STUDIO_ADMIN_EMAIL.toLowerCase(),
+            ),
+          ],
+        }));
+        broadcastAuctionUpdate();
       },
 
       changePassword: async ({ userId, currentPassword, newPassword }) => {
@@ -391,7 +458,7 @@ export const useInkora = create<InkoraState>()(
                   verificationStatus: status,
                   reviewNote,
                   reviewedAt: new Date().toISOString(),
-                  reviewedBy: "Equipo Inkora",
+                  reviewedBy: "Equipo Carrizo",
                 }
               : item,
           ),
@@ -442,11 +509,25 @@ export const useInkora = create<InkoraState>()(
         if (!user) {
           return { ok: false, error: "Sesión inválida. Vuelve a ingresar." };
         }
-        if (user.verificationStatus === "rechazado") {
+        if (user.verificationStatus !== "verificado") {
+          if (user.verificationStatus === "en_revision") {
+            return {
+              ok: false,
+              error:
+                "Tu documento está en revisión. Podrás pujar cuando el equipo lo apruebe.",
+            };
+          }
+          if (user.verificationStatus === "rechazado") {
+            return {
+              ok: false,
+              error:
+                "Tu verificación fue rechazada. Sube un documento válido en Acceso para reintentar.",
+            };
+          }
           return {
             ok: false,
             error:
-              "Tu verificación fue rechazada. Sube un documento válido en Acceso para reintentar.",
+              "Debes tener tu documento aprobado para pujar. Súbelo en Acceso.",
           };
         }
 
@@ -573,6 +654,7 @@ export const useInkora = create<InkoraState>()(
 
       createBookingRequest: (input) => {
         const state = get();
+
         const artist = state.artists.find((a) => a.id === input.artistId);
         if (!artist) throw new Error("Artista no encontrado");
 
@@ -597,13 +679,10 @@ export const useInkora = create<InkoraState>()(
           };
         }
 
-        const quote = estimateQuote({
-          style: input.style,
-          zone: input.zone,
-          size: input.size,
-          hourlyRate: artist.hourlyRate,
-          depositPercent: state.studio.depositPercent,
-        });
+        const quote = quoteSessionPackage(
+          input.sessionPackage,
+          state.studio.depositPercent,
+        );
 
         const start = input.preferredDate
           ? new Date(input.preferredDate)
@@ -633,6 +712,7 @@ export const useInkora = create<InkoraState>()(
           balancePaid: false,
           consentSigned: false,
           budget: input.budget,
+          sessionPackage: input.sessionPackage,
           createdAt: new Date().toISOString(),
         };
 
@@ -794,24 +874,63 @@ export const useInkora = create<InkoraState>()(
         if (apt.consentId) return apt.consentId;
 
         const client = get().clients.find((c) => c.id === apt.clientId);
+        const result = get().createConsent({
+          clientId: apt.clientId,
+          clientName: client?.name ?? "Cliente",
+          appointmentId,
+        });
+        return result.consentId ?? "";
+      },
+
+      createConsent: ({
+        clientId,
+        clientName,
+        appointmentId,
+        sessionTitle,
+        sessionAt,
+      }) => {
+        if (!clientName.trim()) {
+          return { ok: false, error: "Indica el nombre del cliente." };
+        }
+
+        if (appointmentId) {
+          const apt = get().appointments.find((a) => a.id === appointmentId);
+          if (!apt) {
+            return { ok: false, error: "Turno no encontrado." };
+          }
+          if (apt.consentId) {
+            return { ok: true, consentId: apt.consentId };
+          }
+          if (apt.consentSigned) {
+            return {
+              ok: false,
+              error: "Este turno ya tiene un consentimiento firmado.",
+            };
+          }
+        }
+
         const consentId = uid("consent");
         const consent: ConsentForm = {
           id: consentId,
+          clientId,
+          clientName: clientName.trim(),
           appointmentId,
-          clientId: apt.clientId,
-          clientName: client?.name ?? "Cliente",
+          sessionTitle: sessionTitle?.trim() || undefined,
+          sessionAt: sessionAt || undefined,
           acceptedTerms: false,
           healthDeclaration: "",
         };
 
         set((s) => ({
           consents: [consent, ...s.consents],
-          appointments: s.appointments.map((a) =>
-            a.id === appointmentId ? { ...a, consentId } : a,
-          ),
+          appointments: appointmentId
+            ? s.appointments.map((a) =>
+                a.id === appointmentId ? { ...a, consentId } : a,
+              )
+            : s.appointments,
         }));
 
-        return consentId;
+        return { ok: true, consentId };
       },
 
       updateAppointmentStatus: (appointmentId, status) => {
@@ -823,10 +942,10 @@ export const useInkora = create<InkoraState>()(
       },
     }),
     {
-      name: "inkora-store-v6-password",
-      version: 6,
+      name: "carrizo-store-v7",
+      version: 7,
       migrate: (persisted) => {
-        const state = (persisted ?? {}) as Partial<InkoraState>;
+        const state = (persisted ?? {}) as Partial<CarrizoState>;
         const users = mergeUsersWithSeedPasswords(
           state.users?.length ? state.users : seedUsers,
         );

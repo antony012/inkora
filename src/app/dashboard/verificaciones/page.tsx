@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { ShieldCheck } from "lucide-react";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 import {
   verificationBadge,
   verificationLabel,
@@ -19,8 +19,8 @@ const filters: Array<VerificationStatus | "todos"> = [
 ];
 
 export default function VerificacionesPage() {
-  const users = useInkora((s) => s.users);
-  const reviewVerification = useInkora((s) => s.reviewVerification);
+  const users = useCarrizo((s) => s.users);
+  const reviewVerification = useCarrizo((s) => s.reviewVerification);
   const [filter, setFilter] = useState<VerificationStatus | "todos">("en_revision");
   const [note, setNote] = useState("Documento ilegible o datos no coinciden.");
 

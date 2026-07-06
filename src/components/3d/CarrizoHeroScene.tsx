@@ -2,7 +2,7 @@
 
 import Logo3DScene from "./Logo3DScene";
 
-export default function InkoraHeroScene() {
+export default function CarrizoHeroScene() {
   return (
     <Logo3DScene
       large

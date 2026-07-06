@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
+  LayoutDashboard,
   Gavel,
   LogOut,
   Settings2,
@@ -12,7 +13,8 @@ import {
 } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useSessionUser } from "@/hooks/useSessionUser";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
+import { isStudioAdmin } from "@/lib/auth";
 import { userAccessMessage } from "@/lib/user-access";
 import { cn } from "@/lib/utils";
 import {
@@ -28,8 +30,9 @@ export function UserCard({
   compact?: boolean;
 }) {
   const router = useRouter();
-  const studio = useInkora((s) => s.studio);
-  const logoutUser = useInkora((s) => s.logoutUser);
+  const pathname = usePathname();
+  const studio = useCarrizo((s) => s.studio);
+  const logoutUser = useCarrizo((s) => s.logoutUser);
   const { hydrated, sessionUser } = useSessionUser();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -61,9 +64,13 @@ export function UserCard({
     );
   }
 
+  const loginHref = pathname.startsWith("/estudio/")
+    ? "/acceso?from=estudio"
+    : "/acceso";
+
   if (!sessionUser) {
     return showAccessLink ? (
-      <Link href="/acceso" className="btn-secondary px-3 py-2 text-xs">
+      <Link href={loginHref} className="btn-secondary px-3 py-2 text-xs">
         Iniciar sesión
       </Link>
     ) : null;
@@ -163,6 +170,17 @@ export function UserCard({
           </div>
 
           <div className="space-y-1 p-2">
+            {isStudioAdmin(sessionUser) ? (
+              <Link
+                href="/dashboard"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[#6ee7b7] transition hover:bg-[#141418]"
+              >
+                <LayoutDashboard size={16} />
+                Panel del estudio
+              </Link>
+            ) : null}
             <Link
               href="/acceso"
               role="menuitem"

@@ -1,4 +1,4 @@
-# Inkora
+# Carrizo
 
 Software all-in-one para estudios de tatuaje. Diseñado para superar a Porter, TATTOOX y SesionInk en el flujo real del artista latinoamericano.
 

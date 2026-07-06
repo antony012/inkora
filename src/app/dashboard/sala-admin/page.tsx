@@ -20,9 +20,11 @@ import {
   sortBids,
 } from "@/lib/auction";
 import { formatMoney, styleLabel } from "@/lib/quote-engine";
+import { LiveRoomAudience } from "@/components/LiveRoomAudience";
 import { UserAvatar } from "@/components/UserAvatar";
+import { useAuctionRoomUsers } from "@/hooks/useAuctionRoomUsers";
 import { useOnlineUsers } from "@/hooks/useOnlineUsers";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 import {
   verificationBadge,
   verificationLabel,
@@ -40,12 +42,13 @@ function presencePageLabel(page: string) {
 }
 
 export default function SalaAdminPage() {
-  const studio = useInkora((s) => s.studio);
-  const auctions = useInkora((s) => s.auctions);
-  const users = useInkora((s) => s.users);
+  const studio = useCarrizo((s) => s.studio);
+  const auctions = useCarrizo((s) => s.auctions);
+  const users = useCarrizo((s) => s.users);
   const onlineUsers = useOnlineUsers();
-  const syncAuctionStatuses = useInkora((s) => s.syncAuctionStatuses);
-  const cancelAuction = useInkora((s) => s.cancelAuction);
+  const roomUsers = useAuctionRoomUsers(studio.slug);
+  const syncAuctionStatuses = useCarrizo((s) => s.syncAuctionStatuses);
+  const cancelAuction = useCarrizo((s) => s.cancelAuction);
 
   const [now, setNow] = useState(Date.now());
   const [onlyVerified, setOnlyVerified] = useState(false);
@@ -117,7 +120,7 @@ export default function SalaAdminPage() {
             <Radio size={12} /> {auctionStatusLabel(status)}
           </span>
           <span className="badge badge-gold">
-            <Users size={12} /> {auction.viewers} en sala
+            <Users size={12} /> {roomUsers.length} en sala
           </span>
           <span className="badge badge-green">
             <Users size={12} /> {onlineUsers.length} en línea
@@ -230,6 +233,8 @@ export default function SalaAdminPage() {
           </div>
         </section>
       </div>
+
+      <LiveRoomAudience />
 
       <section className="card overflow-hidden">
         <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-4">

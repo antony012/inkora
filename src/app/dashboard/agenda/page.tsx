@@ -5,14 +5,14 @@ import { es } from "date-fns/locale";
 import { useMemo, useState } from "react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { formatMoney } from "@/lib/quote-engine";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 
 export default function AgendaPage() {
-  const appointments = useInkora((s) => s.appointments);
-  const clients = useInkora((s) => s.clients);
-  const artists = useInkora((s) => s.artists);
-  const markCompleted = useInkora((s) => s.markCompleted);
-  const updateAppointmentStatus = useInkora((s) => s.updateAppointmentStatus);
+  const appointments = useCarrizo((s) => s.appointments);
+  const clients = useCarrizo((s) => s.clients);
+  const artists = useCarrizo((s) => s.artists);
+  const markCompleted = useCarrizo((s) => s.markCompleted);
+  const updateAppointmentStatus = useCarrizo((s) => s.updateAppointmentStatus);
   const [selectedDay, setSelectedDay] = useState(startOfDay(new Date()));
 
   const days = useMemo(

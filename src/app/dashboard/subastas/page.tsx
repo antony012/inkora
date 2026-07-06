@@ -10,7 +10,7 @@ import {
   resolveAuctionStatus,
 } from "@/lib/auction";
 import { formatMoney, styleLabel } from "@/lib/quote-engine";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 import { sanitizeNumber, sanitizeText } from "@/lib/validation";
 import type { TattooSize, TattooStyle } from "@/lib/types";
 
@@ -25,12 +25,12 @@ const styles: TattooStyle[] = [
 const sizes: TattooSize[] = ["pequeño", "mediano", "grande"];
 
 export default function SubastasDashboardPage() {
-  const studio = useInkora((s) => s.studio);
-  const portfolio = useInkora((s) => s.portfolio);
-  const auctions = useInkora((s) => s.auctions);
-  const createAuction = useInkora((s) => s.createAuction);
-  const cancelAuction = useInkora((s) => s.cancelAuction);
-  const syncAuctionStatuses = useInkora((s) => s.syncAuctionStatuses);
+  const studio = useCarrizo((s) => s.studio);
+  const portfolio = useCarrizo((s) => s.portfolio);
+  const auctions = useCarrizo((s) => s.auctions);
+  const createAuction = useCarrizo((s) => s.createAuction);
+  const cancelAuction = useCarrizo((s) => s.cancelAuction);
+  const syncAuctionStatuses = useCarrizo((s) => s.syncAuctionStatuses);
 
   const [title, setTitle] = useState("Flash exclusivo de la noche");
   const [description, setDescription] = useState(

@@ -10,21 +10,43 @@ import {
   subscribeAuctionLive,
 } from "@/lib/live-sync";
 import { mergeUsers } from "@/lib/session";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 import type { TattooAuction, VerifiedUser } from "@/lib/types";
 
+const LEGACY_STORE_KEYS = [
+  "inkora-store-v6-password",
+  "inkora-store-v5-verify",
+] as const;
+const STORE_KEY = "carrizo-store-v7";
+
+function migrateLegacyStore() {
+  if (typeof window === "undefined") return;
+  if (localStorage.getItem(STORE_KEY)) return;
+
+  for (const legacyKey of LEGACY_STORE_KEYS) {
+    const raw = localStorage.getItem(legacyKey);
+    if (!raw) continue;
+    localStorage.setItem(STORE_KEY, raw);
+    break;
+  }
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
-  const setHydrated = useInkora((s) => s.setHydrated);
+  const setHydrated = useCarrizo((s) => s.setHydrated);
 
   useEffect(() => {
-    if (useInkora.persist.hasHydrated()) {
+    migrateLegacyStore();
+    const finish = () => {
       setHydrated(true);
+      void useCarrizo.getState().ensureStudioAdmin();
+    };
+
+    if (useCarrizo.persist.hasHydrated()) {
+      finish();
       return;
     }
 
-    return useInkora.persist.onFinishHydration(() => {
-      setHydrated(true);
-    });
+    return useCarrizo.persist.onFinishHydration(finish);
   }, [setHydrated]);
 
   useEffect(() => {
@@ -36,7 +58,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }>();
       if (!remoteState) return;
 
-      const local = useInkora.getState();
+      const local = useCarrizo.getState();
       const next: Partial<typeof local> = {};
 
       if (
@@ -64,7 +86,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }
 
       if (Object.keys(next).length > 0) {
-        useInkora.setState(next);
+        useCarrizo.setState(next);
       }
     });
   }, []);

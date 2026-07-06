@@ -5,18 +5,19 @@ import { useParams, useRouter } from "next/navigation";
 import { Gavel } from "lucide-react";
 import { useEffect } from "react";
 import { LiveAuctionRoom } from "@/components/LiveAuctionRoom";
+import { RoomAccessGate } from "@/components/RoomAccessGate";
 import { SocialStrip } from "@/components/SocialStrip";
 import { UserCard } from "@/components/UserCard";
 import { trackPageView } from "@/lib/analytics";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 
 const LEGACY_SLUGS = new Set(["nueva-temporada", "santiago-ink"]);
 
 export default function SubastaPublicPage() {
   const params = useParams<{ slug: string }>();
   const router = useRouter();
-  const studio = useInkora((s) => s.studio);
-  const hydrated = useInkora((s) => s.hydrated);
+  const studio = useCarrizo((s) => s.studio);
+  const hydrated = useCarrizo((s) => s.hydrated);
 
   useEffect(() => {
     if (LEGACY_SLUGS.has(params.slug)) {
@@ -66,13 +67,15 @@ export default function SubastaPublicPage() {
               Subasta de tatuaje en vivo
             </h1>
             <p className="mt-2 text-[var(--text-muted)]">
-              Enderson publica una pieza exclusiva. Inicia sesión para pujar en
-              tiempo real y reservar tu sesión.
+              Enderson publica una pieza exclusiva. Inicia sesión y verifica tu
+              identidad para pujar en tiempo real. Reservar turno no requiere documento.
             </p>
           </div>
           <SocialStrip studio={studio} />
         </div>
-        <LiveAuctionRoom />
+        <RoomAccessGate roomName="subasta en vivo">
+          <LiveAuctionRoom />
+        </RoomAccessGate>
       </main>
     </div>
   );

@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Inkora — Software para tatuadores y estudios",
+  title: "Carrizo — Software para tatuadores y estudios",
   description:
     "Agenda, cotización inteligente, señas, consentimientos digitales, CRM y caja. La plataforma all-in-one para estudios de tatuaje.",
 };

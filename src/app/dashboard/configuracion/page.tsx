@@ -1,12 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 import { formatMoney } from "@/lib/quote-engine";
 
 export default function ConfiguracionPage() {
-  const studio = useInkora((s) => s.studio);
-  const artists = useInkora((s) => s.artists);
+  const studio = useCarrizo((s) => s.studio);
+  const artists = useCarrizo((s) => s.artists);
 
   return (
     <div className="space-y-6 animate-fade-up">

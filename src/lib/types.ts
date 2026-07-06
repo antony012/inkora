@@ -98,6 +98,7 @@ export interface Appointment {
   consentId?: string;
   budget?: number;
   createdAt: string;
+  sessionPackage?: SessionPackageId;
 }
 
 export interface Payment {
@@ -114,9 +115,11 @@ export interface Payment {
 
 export interface ConsentForm {
   id: string;
-  appointmentId: string;
+  appointmentId?: string;
   clientId: string;
   clientName: string;
+  sessionTitle?: string;
+  sessionAt?: string;
   signedAt?: string;
   signatureData?: string;
   acceptedTerms: boolean;
@@ -145,6 +148,8 @@ export interface Studio {
   aftercareText: string;
 }
 
+export type SessionPackageId = "una_hora" | "corta" | "estandar" | "larga";
+
 export interface BookingRequestInput {
   name: string;
   email: string;
@@ -154,6 +159,7 @@ export interface BookingRequestInput {
   zone: BodyZone;
   size: TattooSize;
   description: string;
+  sessionPackage: SessionPackageId;
   budget?: number;
   preferredDate?: string;
 }
@@ -178,6 +184,8 @@ export type VerificationStatus =
 
 export type DocumentType = "cedula" | "pasaporte";
 
+export type UserRole = "user" | "studio_admin";
+
 export interface VerifiedUser {
   id: string;
   name: string;
@@ -189,6 +197,7 @@ export interface VerifiedUser {
   documentFileName?: string;
   profilePhotoUrl?: string;
   passwordHash: string;
+  role?: UserRole;
   verificationStatus: VerificationStatus;
   reviewNote?: string;
   submittedAt?: string;

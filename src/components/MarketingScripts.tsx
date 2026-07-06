@@ -2,14 +2,14 @@
 
 import Script from "next/script";
 import { useEffect } from "react";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
 
 const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
 const ga4Id = process.env.NEXT_PUBLIC_GA4_ID;
 const tiktokPixelId = process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID;
 
 export function MarketingScripts() {
-  const consent = useInkora((s) => s.consentPreferences);
+  const consent = useCarrizo((s) => s.consentPreferences);
 
   useEffect(() => {
     if (!consent.marketing) {

@@ -12,6 +12,16 @@ export function PresenceHeartbeat() {
   useEffect(() => {
     if (!sessionUser) return;
 
+    const isAuctionRoom = pathname.includes("/subasta");
+
+    if (
+      isAuctionRoom &&
+      sessionUser.verificationStatus !== "verificado"
+    ) {
+      removePresence(sessionUser.id);
+      return;
+    }
+
     const beat = () => {
       touchPresence({
         userId: sessionUser.id,

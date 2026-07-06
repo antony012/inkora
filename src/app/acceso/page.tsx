@@ -2,15 +2,16 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useState } from "react";
 import { ShieldCheck, Upload } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { PasswordField } from "@/components/PasswordField";
 import { ProfilePhotoUpload } from "@/components/UserAvatar";
 import { ArtistBadge, SocialStrip } from "@/components/SocialStrip";
 import { useSessionUser } from "@/hooks/useSessionUser";
-import { useInkora } from "@/lib/store";
+import { useCarrizo } from "@/lib/store";
+import { postLoginPath } from "@/lib/auth";
 import { userAccessMessage } from "@/lib/user-access";
 import {
   sanitizeEmail,
@@ -33,15 +34,31 @@ async function fileToDataUrl(file: File) {
 }
 
 export default function AccesoPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center text-[var(--text-muted)]">
+          Cargando acceso...
+        </div>
+      }
+    >
+      <AccesoPageContent />
+    </Suspense>
+  );
+}
+
+function AccesoPageContent() {
   const router = useRouter();
-  const registerUser = useInkora((s) => s.registerUser);
-  const loginUser = useInkora((s) => s.loginUser);
-  const changePassword = useInkora((s) => s.changePassword);
-  const resetPassword = useInkora((s) => s.resetPassword);
-  const logoutUser = useInkora((s) => s.logoutUser);
-  const submitIdentityDocument = useInkora((s) => s.submitIdentityDocument);
-  const updateProfilePhoto = useInkora((s) => s.updateProfilePhoto);
-  const studio = useInkora((s) => s.studio);
+  const searchParams = useSearchParams();
+  const loginFrom = searchParams.get("from");
+  const registerUser = useCarrizo((s) => s.registerUser);
+  const loginUser = useCarrizo((s) => s.loginUser);
+  const changePassword = useCarrizo((s) => s.changePassword);
+  const resetPassword = useCarrizo((s) => s.resetPassword);
+  const logoutUser = useCarrizo((s) => s.logoutUser);
+  const submitIdentityDocument = useCarrizo((s) => s.submitIdentityDocument);
+  const updateProfilePhoto = useCarrizo((s) => s.updateProfilePhoto);
+  const studio = useCarrizo((s) => s.studio);
   const { hydrated, sessionUser } = useSessionUser();
 
   const [mode, setMode] = useState<"login" | "register" | "recover">("register");
@@ -127,7 +144,10 @@ export default function AccesoPage() {
       }
       setSuccess("Sesión iniciada correctamente.");
       setPassword("");
-      router.push(`/estudio/${studio.slug}/subasta`);
+      const loggedInUser = useCarrizo
+        .getState()
+        .users.find((user) => user.email === sanitizeEmail(email));
+      router.push(postLoginPath(loggedInUser, studio.slug, loginFrom));
     } finally {
       setSubmitting(false);
     }
@@ -492,10 +512,16 @@ export default function AccesoPage() {
                   </button>
                 ) : null}
                 {mode !== "recover" ? (
-                  <p className="text-xs text-[var(--text-dim)]">
-                    Demo: sofia@email.com · contraseña{" "}
-                    <span className="font-mono">Sofia2026!</span>
-                  </p>
+                  <div className="space-y-1 text-xs text-[var(--text-dim)]">
+                    <p>
+                      Cliente demo: sofia@email.com ·{" "}
+                      <span className="font-mono">Sofia2026!</span>
+                    </p>
+                    <p>
+                      Admin del estudio: enderson@carrizo.cl ·{" "}
+                      <span className="font-mono">Enderson2026!</span>
+                    </p>
+                  </div>
                 ) : null}
               </form>
             </div>
@@ -532,42 +558,39 @@ export default function AccesoPage() {
 
               {sessionUser.verificationStatus === "verificado" ? (
                 <div className="rounded-2xl border border-[#34d39944] bg-[#34d39914] p-4 text-sm text-[#6ee7b7]">
-                  Identidad verificada. Acceso completo a subastas y reservas.
+                  Identidad verificada. Puedes reservar turnos y pujar en subastas.
                 </div>
-              ) : sessionUser.verificationStatus !== "rechazado" ? (
-                <div className="rounded-2xl border border-[var(--border)] bg-[#0d0d10] p-4 text-sm text-[var(--text-muted)]">
-                  Tu sesión está activa. Puedes pujar y reservar ahora; la
-                  verificación de documento es opcional para reforzar tu perfil.
-                </div>
-              ) : null}
-
-              {sessionUser.verificationStatus === "en_revision" ? (
-                <div className="rounded-2xl border border-[#fbbf2444] bg-[#fbbf2414] p-4 text-sm text-[#fcd34d]">
-                  Documento en revisión por el equipo. Te avisaremos al aprobarlo.
-                </div>
-              ) : null}
-
-              {sessionUser.verificationStatus === "rechazado" ? (
+              ) : sessionUser.verificationStatus === "rechazado" ? (
                 <div className="rounded-2xl border border-[#f9731644] bg-[#f9731614] p-4 text-sm text-[var(--accent-glow)]">
                   Rechazado:{" "}
                   {sessionUser.reviewNote || "Documento ilegible o datos no coinciden."}{" "}
                   Sube uno nuevo para reintentar.
                 </div>
-              ) : null}
+              ) : (
+                <div className="rounded-2xl border border-[var(--border)] bg-[#0d0d10] p-4 text-sm text-[var(--text-muted)]">
+                  {userAccessMessage(sessionUser).detail}
+                </div>
+              )}
 
               <div className="grid gap-2 sm:grid-cols-2">
                 <Link
-                  href={`/estudio/${studio.slug}/subasta`}
-                  className="btn-primary inline-flex justify-center px-4 py-3 text-sm"
-                >
-                  Ir a subasta
-                </Link>
-                <Link
                   href={`/estudio/${studio.slug}/reservar`}
-                  className="btn-secondary inline-flex justify-center px-4 py-3 text-sm"
+                  className="btn-primary inline-flex justify-center px-4 py-3 text-sm"
                 >
                   Reservar turno
                 </Link>
+                {sessionUser.verificationStatus === "verificado" ? (
+                  <Link
+                    href={`/estudio/${studio.slug}/subasta`}
+                    className="btn-secondary inline-flex justify-center px-4 py-3 text-sm"
+                  >
+                    Ir a subasta
+                  </Link>
+                ) : (
+                  <span className="inline-flex items-center justify-center rounded-full border border-[var(--border)] bg-[#0d0d10] px-4 py-3 text-center text-xs text-[var(--text-muted)]">
+                    Subasta: requiere documento aprobado
+                  </span>
+                )}
               </div>
 
               {sessionUser.verificationStatus !== "verificado" &&

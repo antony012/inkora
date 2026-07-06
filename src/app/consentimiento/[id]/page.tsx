@@ -5,14 +5,18 @@ import { useParams } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { useInkora } from "@/lib/store";
+import { SignaturePad, ConsentSignaturePreview } from "@/components/SignaturePad";
+import { DownloadConsentPdfButton } from "@/components/DownloadConsentPdfButton";
+import { consentSessionLabel } from "@/lib/consent-display";
+import { isDrawnSignature } from "@/lib/signature";
+import { useCarrizo } from "@/lib/store";
 
 export default function ConsentimientoPage() {
   const params = useParams<{ id: string }>();
-  const consents = useInkora((s) => s.consents);
-  const appointments = useInkora((s) => s.appointments);
-  const studio = useInkora((s) => s.studio);
-  const signConsent = useInkora((s) => s.signConsent);
+  const consents = useCarrizo((s) => s.consents);
+  const appointments = useCarrizo((s) => s.appointments);
+  const studio = useCarrizo((s) => s.studio);
+  const signConsent = useCarrizo((s) => s.signConsent);
 
   const consent = consents.find((c) => c.id === params.id);
   const appointment = appointments.find((a) => a.id === consent?.appointmentId);
@@ -20,6 +24,9 @@ export default function ConsentimientoPage() {
   const [signatureData, setSignatureData] = useState("");
   const [healthDeclaration, setHealthDeclaration] = useState("");
   const [accepted, setAccepted] = useState(false);
+
+  const hasSignature =
+    isDrawnSignature(signatureData) || signatureData.trim().length > 0;
 
   if (!consent) {
     return (
@@ -29,11 +36,15 @@ export default function ConsentimientoPage() {
     );
   }
 
+  const sessionLabel = consentSessionLabel(consent, appointment);
+
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!accepted || !signatureData.trim()) return;
+    if (!accepted || !hasSignature) return;
     signConsent(consent.id, {
-      signatureData: signatureData.trim(),
+      signatureData: isDrawnSignature(signatureData)
+        ? signatureData
+        : signatureData.trim(),
       healthDeclaration: healthDeclaration.trim() || "Sin condiciones relevantes",
     });
   };
@@ -51,12 +62,18 @@ export default function ConsentimientoPage() {
             })}
             .
           </p>
-          <p className="mt-4 font-serif text-2xl italic text-[#d4a853]">
-            {consent.signatureData}
-          </p>
-          <Link href="/dashboard/consentimientos" className="btn-secondary mt-6 inline-block px-5 py-2.5">
-            Volver al panel
-          </Link>
+          <ConsentSignaturePreview signatureData={consent.signatureData ?? ""} />
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <DownloadConsentPdfButton
+              studio={studio}
+              consent={consent}
+              appointment={appointment}
+              variant="primary"
+            />
+            <Link href="/dashboard/consentimientos" className="btn-secondary px-5 py-2.5">
+              Volver al panel
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -72,9 +89,7 @@ export default function ConsentimientoPage() {
           </h1>
           <p className="mt-2 text-sm text-[var(--text-muted)]">
             Cliente: {consent.clientName}
-            {appointment
-              ? ` · ${appointment.title} · ${format(parseISO(appointment.startAt), "d MMM yyyy HH:mm", { locale: es })}`
-              : null}
+            {sessionLabel ? ` · ${sessionLabel}` : null}
           </p>
         </div>
 
@@ -100,14 +115,11 @@ export default function ConsentimientoPage() {
         </div>
 
         <div>
-          <label className="label">Firma (escribí tu nombre completo)</label>
-          <input
-            className="input font-serif text-xl italic"
-            required
-            value={signatureData}
-            onChange={(e) => setSignatureData(e.target.value)}
-            placeholder="Tu nombre y apellido"
-          />
+          <label className="label">Firma digital</label>
+          <p className="mb-2 text-xs text-[var(--text-dim)]">
+            Deslizá el dedo sobre el recuadro para firmar desde tu teléfono.
+          </p>
+          <SignaturePad onChange={setSignatureData} />
         </div>
 
         <label className="flex items-start gap-3 text-sm text-[var(--text-muted)]">
@@ -123,7 +135,7 @@ export default function ConsentimientoPage() {
 
         <button
           type="submit"
-          disabled={!accepted || !signatureData.trim()}
+          disabled={!accepted || !hasSignature}
           className="btn-primary w-full py-3 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Firmar consentimiento

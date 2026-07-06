@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const response = await fetch(
       `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`,
       {
-        headers: { "User-Agent": "Inkora/1.0" },
+        headers: { "User-Agent": "Carrizo/1.0" },
         next: { revalidate: 3600 },
       },
     );

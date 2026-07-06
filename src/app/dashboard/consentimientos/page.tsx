@@ -4,13 +4,17 @@ import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { FileSignature, Link2 } from "lucide-react";
-import { useInkora } from "@/lib/store";
+import { DownloadConsentPdfButton } from "@/components/DownloadConsentPdfButton";
+import { CreateConsentForm } from "@/components/CreateConsentForm";
+import { consentSessionLabel } from "@/lib/consent-display";
+import { useCarrizo } from "@/lib/store";
 
 export default function ConsentimientosPage() {
-  const consents = useInkora((s) => s.consents);
-  const appointments = useInkora((s) => s.appointments);
-  const clients = useInkora((s) => s.clients);
-  const createConsentForAppointment = useInkora(
+  const consents = useCarrizo((s) => s.consents);
+  const appointments = useCarrizo((s) => s.appointments);
+  const clients = useCarrizo((s) => s.clients);
+  const studio = useCarrizo((s) => s.studio);
+  const createConsentForAppointment = useCarrizo(
     (s) => s.createConsentForAppointment,
   );
 
@@ -30,6 +34,8 @@ export default function ConsentimientosPage() {
           Firmas digitales con fecha, hora y declaración de salud.
         </p>
       </div>
+
+      <CreateConsentForm />
 
       {pendingApts.length > 0 ? (
         <section className="card p-5">
@@ -85,7 +91,11 @@ export default function ConsentimientosPage() {
           <h2 className="font-medium">Historial legal</h2>
         </div>
         <div className="divide-y divide-[var(--border)]">
-          {consents.map((consent) => (
+          {consents.map((consent) => {
+            const appointment = appointments.find(
+              (apt) => apt.id === consent.appointmentId,
+            );
+            return (
             <div
               key={consent.id}
               className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
@@ -97,29 +107,52 @@ export default function ConsentimientosPage() {
                 <div>
                   <p className="font-medium">{consent.clientName}</p>
                   <p className="text-sm text-[var(--text-muted)]">
-                    {consent.healthDeclaration || "Sin declaración"}
+                    {consentSessionLabel(consent, appointment) ??
+                      (consent.healthDeclaration || "Pendiente de firma")}
                   </p>
                 </div>
               </div>
-              <div className="text-sm">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
                 {consent.signedAt ? (
-                  <span className="badge badge-green">
-                    Firmado{" "}
-                    {format(parseISO(consent.signedAt), "d MMM yyyy HH:mm", {
-                      locale: es,
-                    })}
-                  </span>
+                  <>
+                    <span className="badge badge-green">
+                      Firmado{" "}
+                      {format(parseISO(consent.signedAt), "d MMM yyyy HH:mm", {
+                        locale: es,
+                      })}
+                    </span>
+                    <DownloadConsentPdfButton
+                      studio={studio}
+                      consent={consent}
+                      appointment={appointment}
+                      label="PDF"
+                      className="px-3 py-1.5 text-xs"
+                    />
+                  </>
                 ) : (
-                  <Link
-                    href={`/consentimiento/${consent.id}`}
-                    className="badge badge-amber"
-                  >
-                    Pendiente · firmar
-                  </Link>
+                  <>
+                    <Link
+                      href={`/consentimiento/${consent.id}`}
+                      className="badge badge-amber"
+                    >
+                      Pendiente · firmar
+                    </Link>
+                    <button
+                      type="button"
+                      className="btn-secondary px-3 py-1.5 text-xs"
+                      onClick={() => {
+                        const url = `${window.location.origin}/consentimiento/${consent.id}`;
+                        void navigator.clipboard.writeText(url);
+                      }}
+                    >
+                      Copiar link
+                    </button>
+                  </>
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </section>
     </div>
