@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
+import { ConsentBrandHeader } from "@/components/ConsentBrandHeader";
+import { ConsentTermsBody } from "@/components/ConsentTermsBody";
 import { SignaturePad, ConsentSignaturePreview } from "@/components/SignaturePad";
 import { DownloadConsentPdfButton } from "@/components/DownloadConsentPdfButton";
 import { consentSessionLabel } from "@/lib/consent-display";
@@ -53,6 +55,7 @@ export default function ConsentimientoPage() {
     return (
       <div className="ink-grid flex min-h-screen items-center justify-center px-4">
         <div className="card max-w-lg p-8 text-center">
+          <ConsentBrandHeader studioName={studio.name} centered className="mb-6 border-0 pb-0" />
           <span className="badge badge-green mb-4">Firmado</span>
           <h1 className="text-2xl font-semibold">Consentimiento registrado</h1>
           <p className="mt-3 text-[var(--text-muted)]">
@@ -82,27 +85,17 @@ export default function ConsentimientoPage() {
   return (
     <div className="ink-grid min-h-screen px-4 py-10">
       <form onSubmit={onSubmit} className="card mx-auto max-w-2xl space-y-5 p-6 sm:p-8">
+        <ConsentBrandHeader studioName={studio.name} />
+
         <div>
-          <p className="text-sm text-[var(--text-dim)]">{studio.name}</p>
-          <h1 className="mt-1 text-2xl font-semibold">
-            Consentimiento informado
-          </h1>
+          <h1 className="text-2xl font-semibold">Consentimiento informado</h1>
           <p className="mt-2 text-sm text-[var(--text-muted)]">
             Cliente: {consent.clientName}
             {sessionLabel ? ` · ${sessionLabel}` : null}
           </p>
         </div>
 
-        <div className="rounded-xl border border-[var(--border)] bg-[#0d0d10] p-4 text-sm leading-relaxed text-[var(--text-muted)]">
-          <p>
-            Declaro que fui informado/a sobre el procedimiento de tatuaje, riesgos
-            posibles (infección, reacción alérgica, cicatrización irregular),
-            cuidados posteriores y que soy mayor de edad. Autorizo al estudio a
-            realizar el trabajo descrito y acepto que la seña no es reembolsable
-            ante inasistencias sin aviso de 48 horas.
-          </p>
-          <p className="mt-3">{studio.aftercareText}</p>
-        </div>
+        <ConsentTermsBody aftercareText={studio.aftercareText} />
 
         <div>
           <label className="label">Declaración de salud / alergias</label>
@@ -129,8 +122,9 @@ export default function ConsentimientoPage() {
             checked={accepted}
             onChange={(e) => setAccepted(e.target.checked)}
           />
-          Acepto los términos, cuidados posteriores y declaro que la información
-          de salud es verídica.
+          Acepto los términos del consentimiento informado, los cuidados
+          posteriores y declaro bajo mi responsabilidad que la información de
+          salud es verídica y completa.
         </label>
 
         <button

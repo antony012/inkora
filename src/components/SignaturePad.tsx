@@ -54,7 +54,8 @@ export function SignaturePad({
     const rect = canvas.getBoundingClientRect();
     const img = new Image();
     img.onload = () => {
-      ctx.clearRect(0, 0, rect.width, rect.height);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, rect.width, rect.height);
       ctx.drawImage(img, 0, 0, rect.width, rect.height);
       hasStrokes.current = true;
       setEmpty(false);
@@ -81,14 +82,14 @@ export function SignaturePad({
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = "#f5f5f5";
+    ctx.strokeStyle = "#000000";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, rect.width, rect.height);
 
     if (snapshot) {
       restoreImage(snapshot);
       return;
     }
-
-    ctx.clearRect(0, 0, rect.width, rect.height);
   }, [empty, restoreImage]);
 
   useEffect(() => {
@@ -161,7 +162,8 @@ export function SignaturePad({
     if (!canvas || !ctx) return;
 
     const rect = canvas.getBoundingClientRect();
-    ctx.clearRect(0, 0, rect.width, rect.height);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, rect.width, rect.height);
     hasStrokes.current = false;
     lastPoint.current = null;
     drawing.current = false;
@@ -171,7 +173,7 @@ export function SignaturePad({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="relative overflow-hidden rounded-xl border border-dashed border-[var(--border-strong)] bg-[#0a0a0c]">
+      <div className="relative overflow-hidden rounded-xl border border-dashed border-[var(--border-strong)] bg-white">
         <canvas
           ref={canvasRef}
           className="block h-44 w-full touch-none cursor-crosshair sm:h-52"
@@ -182,7 +184,7 @@ export function SignaturePad({
           onPointerCancel={endStroke}
         />
         {empty ? (
-          <p className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-[var(--text-dim)]">
+          <p className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center text-sm text-[#71717a]">
             Firmá aquí con el dedo o el stylus
           </p>
         ) : null}
@@ -212,7 +214,7 @@ export function ConsentSignaturePreview({
     return (
       <div
         className={cn(
-          "mx-auto max-w-md rounded-xl border border-[var(--border)] bg-[#0a0a0c] p-3",
+          "mx-auto max-w-md rounded-xl border border-[var(--border)] bg-white p-3",
           className,
         )}
       >
@@ -229,7 +231,7 @@ export function ConsentSignaturePreview({
   return (
     <p
       className={cn(
-        "font-serif text-2xl italic text-[#d4a853]",
+        "font-serif text-2xl italic text-black",
         className,
       )}
     >

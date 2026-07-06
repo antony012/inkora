@@ -30,7 +30,7 @@ export function DownloadConsentPdfButton({
     if (!canDownload || loading) return;
     setLoading(true);
     try {
-      downloadConsentPdf({ studio, consent, appointment });
+      await downloadConsentPdf({ studio, consent, appointment });
     } catch (error) {
       console.error(error);
       window.alert("No se pudo generar el PDF. Intenta de nuevo.");
