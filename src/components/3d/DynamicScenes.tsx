@@ -15,5 +15,5 @@ export const DynamicStudioScene = dynamic(() => import("./InteractiveStudioScene
 
 export const DynamicLogoScene = dynamic(() => import("./Logo3DScene"), {
   ssr: false,
-  loading: () => <SceneFallback label="Logo 3D Enderson" compact />,
+  loading: () => <SceneFallback label="Logo 3D Enderxon" compact />,
 });

@@ -13,7 +13,7 @@ export default function PortafolioPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Portafolio</h1>
         <p className="mt-1 text-[var(--text-muted)]">
-          Trabajos de Enderson Carrizo publicados en la página pública.
+          Trabajos de Enderxon Carrizo publicados en la página pública.
         </p>
       </div>
 

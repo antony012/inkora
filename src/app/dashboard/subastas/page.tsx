@@ -34,11 +34,11 @@ export default function SubastasDashboardPage() {
 
   const [title, setTitle] = useState("Flash exclusivo de la noche");
   const [description, setDescription] = useState(
-    "Pieza única de Enderson Carrizo. El mejor postor agenda la sesión.",
+    "Pieza única de Enderxon Carrizo. El mejor postor agenda la sesión.",
   );
   const [style, setStyle] = useState<TattooStyle>("blackwork");
   const [size, setSize] = useState<TattooSize>("mediano");
-  const [image, setImage] = useState(portfolio[0]?.image ?? "/artists/enderson/work-1.jpg");
+  const [image, setImage] = useState(portfolio[0]?.image ?? "/artists/enderxon/work-1.jpg");
   const [startingPrice, setStartingPrice] = useState("80000");
   const [minIncrement, setMinIncrement] = useState("5000");
   const [durationMinutes, setDurationMinutes] = useState("30");

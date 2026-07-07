@@ -276,3 +276,63 @@ export interface MarketingEvent {
   metadata?: Record<string, string | number | boolean | undefined>;
   createdAt: string;
 }
+
+export type LeadTemperature = "nuevo" | "frio" | "tibio" | "caliente" | "listo";
+
+export type LeadIntent =
+  | "explorando"
+  | "precio"
+  | "agendar"
+  | "indeciso"
+  | "descartado";
+
+export type ChatAuthor = "cliente" | "bot" | "artista";
+
+export type ReferenceReviewStatus =
+  | "sin_referencia"
+  | "pendiente"
+  | "aprobada"
+  | "rechazada";
+
+export interface ChatMessage {
+  id: string;
+  author: ChatAuthor;
+  text: string;
+  createdAt: string;
+  quotePrice?: number;
+  hasImage?: boolean;
+}
+
+export interface LeadQualification {
+  style?: TattooStyle;
+  zone?: BodyZone;
+  size?: TattooSize;
+  sessionPackage?: SessionPackageId;
+  budget?: number;
+  preferredDate?: string;
+  hasReference: boolean;
+  intent: LeadIntent;
+}
+
+export interface WhatsAppConversation {
+  id: string;
+  contactName: string;
+  phone: string;
+  avatarHue: number;
+  botEnabled: boolean;
+  temperature: LeadTemperature;
+  score: number;
+  unread: number;
+  tags: string[];
+  qualification: LeadQualification;
+  referenceStatus: ReferenceReviewStatus;
+  messages: ChatMessage[];
+  createdAt: string;
+  lastMessageAt: string;
+  convertedAppointmentId?: string;
+  archived?: boolean;
+  /** ID de contacto en Meta WhatsApp Cloud API */
+  waContactId?: string;
+  /** demo = simulación local; whatsapp = conversación real vía API */
+  source?: "demo" | "whatsapp";
+}

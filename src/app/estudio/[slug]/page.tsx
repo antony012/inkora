@@ -224,7 +224,7 @@ export default function EstudioPublicPage() {
                   Subasta en vivo
                 </h2>
                 <p className="text-sm text-[var(--text-muted)]">
-                  Enderson publica un tatuaje y se lo lleva el mejor postor.
+                  Enderxon publica un tatuaje y se lo lleva el mejor postor.
                 </p>
               </div>
               <Link
@@ -288,7 +288,7 @@ export default function EstudioPublicPage() {
             <div>
               <h2 className="text-2xl font-semibold">Portafolio</h2>
               <p className="text-sm text-[var(--text-muted)]">
-                Trabajos reales de Enderson Carrizo. Toca una pieza para registrar interés.
+                Trabajos reales de Enderxon Carrizo. Toca una pieza para registrar interés.
               </p>
             </div>
             <Link

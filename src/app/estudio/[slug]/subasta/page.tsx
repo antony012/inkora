@@ -67,7 +67,7 @@ export default function SubastaPublicPage() {
               Subasta de tatuaje en vivo
             </h1>
             <p className="mt-2 text-[var(--text-muted)]">
-              Enderson publica una pieza exclusiva. Inicia sesión y verifica tu
+              Enderxon publica una pieza exclusiva. Inicia sesión y verifica tu
               identidad para pujar en tiempo real. Reservar turno no requiere documento.
             </p>
           </div>

@@ -1,7 +1,10 @@
 import type { VerifiedUser } from "./types";
 
-export const STUDIO_ADMIN_EMAIL = "enderson@carrizo.cl";
-export const LEGACY_STUDIO_ADMIN_EMAIL = "enderson@inkora.cl";
+export const STUDIO_ADMIN_EMAIL = "enderxon@carrizo.cl";
+export const LEGACY_STUDIO_ADMIN_EMAILS = [
+  "enderson@carrizo.cl",
+  "enderson@inkora.cl",
+] as const;
 
 export function isStudioAdmin(
   user: VerifiedUser | null | undefined,

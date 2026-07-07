@@ -19,6 +19,7 @@ import {
   Gavel,
   ShieldCheck,
   Eye,
+  MessageCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -27,6 +28,7 @@ import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/dashboard", label: "Resumen", icon: LayoutDashboard },
+  { href: "/dashboard/crm", label: "CRM WhatsApp", icon: MessageCircle },
   { href: "/dashboard/solicitudes", label: "Solicitudes", icon: Inbox },
   { href: "/dashboard/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/dashboard/clientes", label: "Clientes", icon: Users },
@@ -48,11 +50,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const resetDemo = useCarrizo((s) => s.resetDemo);
   const [open, setOpen] = useState(false);
 
+  const conversations = useCarrizo((s) => s.conversations);
   const pending = appointments.filter((a) =>
     ["solicitud", "cotizado", "seña_pendiente"].includes(a.status),
   ).length;
   const pendingVerifications = users.filter(
     (user) => user.verificationStatus === "en_revision",
+  ).length;
+  const unreadChats = conversations.reduce((acc, c) => acc + c.unread, 0);
+  const pendingReferences = conversations.filter(
+    (c) => c.referenceStatus === "pendiente",
   ).length;
 
   return (
@@ -99,6 +106,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                   {item.href === "/dashboard/solicitudes" && pending > 0 ? (
                     <span className="rounded-full bg-[#f97316] px-2 py-0.5 text-[10px] font-bold text-white">
                       {pending}
+                    </span>
+                  ) : null}
+                  {item.href === "/dashboard/crm" && pendingReferences > 0 ? (
+                    <span className="rounded-full bg-[#fbbf24] px-2 py-0.5 text-[10px] font-bold text-black">
+                      {pendingReferences}
+                    </span>
+                  ) : item.href === "/dashboard/crm" && unreadChats > 0 ? (
+                    <span className="rounded-full bg-[#34d399] px-2 py-0.5 text-[10px] font-bold text-black">
+                      {unreadChats}
                     </span>
                   ) : null}
                   {item.href === "/dashboard/verificaciones" &&

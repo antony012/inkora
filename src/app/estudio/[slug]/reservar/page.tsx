@@ -203,7 +203,7 @@ export default function ReservarPage() {
             <p className="text-xs uppercase tracking-wide text-[var(--text-dim)]">
               Artista
             </p>
-            <p className="mt-1 font-medium">{artist?.name ?? "Enderson Carrizo"}</p>
+            <p className="mt-1 font-medium">{artist?.name ?? "Enderxon Carrizo"}</p>
             <p className="text-sm text-[var(--text-muted)]">
               {artist?.role ?? "Tatuajes artísticos"}
             </p>

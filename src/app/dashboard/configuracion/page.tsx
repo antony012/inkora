@@ -13,7 +13,7 @@ export default function ConfiguracionPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Configuración</h1>
         <p className="mt-1 text-[var(--text-muted)]">
-          Perfil público de Enderson Carrizo, abono y datos de contacto.
+          Perfil público de Enderxon Carrizo, abono y datos de contacto.
         </p>
       </div>
 

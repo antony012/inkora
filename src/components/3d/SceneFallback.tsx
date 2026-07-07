@@ -2,7 +2,7 @@ import Image from "next/image";
 import { BRAND } from "@/lib/brand";
 
 export function SceneFallback({
-  label = "Enderson Carrizo 3D",
+  label = "Enderxon Carrizo 3D",
   compact = false,
 }: {
   label?: string;

@@ -90,7 +90,7 @@ type Logo3DSceneProps = {
 export default function Logo3DScene({
   large = false,
   className = "",
-  label = "Enderson Carrizo",
+  label = "Enderxon Carrizo",
   sublabel = "Tatuajes artísticos · Santiago, Chile",
   showFooter = true,
 }: Logo3DSceneProps) {

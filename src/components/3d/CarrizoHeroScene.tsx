@@ -6,7 +6,7 @@ export default function CarrizoHeroScene() {
   return (
     <Logo3DScene
       large
-      label="Enderson Carrizo"
+      label="Enderxon Carrizo"
       sublabel="Tatuajes artísticos · Santiago, Chile"
     />
   );

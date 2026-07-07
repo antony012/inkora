@@ -224,7 +224,7 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
               </p>
               <p className="mt-2 text-sm text-[var(--text-muted)]">
                 {auction.winnerName
-                  ? `Ganador: ${auction.winnerName} por ${formatMoney(auction.currentBid)}. Enderson te contactará para agendar la sesión.`
+                  ? `Ganador: ${auction.winnerName} por ${formatMoney(auction.currentBid)}. Enderxon te contactará para agendar la sesión.`
                   : "La subasta terminó sin ofertas."}
               </p>
             </div>

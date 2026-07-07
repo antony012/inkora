@@ -301,7 +301,7 @@ function AccesoPageContent() {
             {[
               "Crea tu cuenta con email, WhatsApp y contraseña segura",
               "Sube cédula o pasaporte legible",
-              "Revisión del equipo de Enderson",
+              "Revisión del equipo de Enderxon",
               "Pujas habilitadas al verificar",
             ].map((item) => (
               <div key={item} className="flex items-start gap-2">
@@ -518,8 +518,8 @@ function AccesoPageContent() {
                       <span className="font-mono">Sofia2026!</span>
                     </p>
                     <p>
-                      Admin del estudio: enderson@carrizo.cl ·{" "}
-                      <span className="font-mono">Enderson2026!</span>
+                      Admin del estudio: enderxon@carrizo.cl ·{" "}
+                      <span className="font-mono">Enderxon2026!</span>
                     </p>
                   </div>
                 ) : null}

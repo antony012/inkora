@@ -237,7 +237,7 @@ export default function HomePage() {
       </main>
 
       <footer className="border-t border-[var(--border)] py-8 text-center text-sm text-[var(--text-dim)]">
-        Carrizo · Software para estudios de tatuaje · Enderson Carrizo
+        Carrizo · Software para estudios de tatuaje · Enderxon Carrizo
       </footer>
     </div>
   );
