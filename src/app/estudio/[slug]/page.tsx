@@ -10,6 +10,7 @@ import {
   Gavel,
   MapPin,
   Phone,
+  ShoppingBag,
   Sparkles,
 } from "lucide-react";
 import { useEffect, useMemo } from "react";
@@ -34,8 +35,12 @@ export default function EstudioPublicPage() {
   const artists = useCarrizo((s) => s.artists);
   const portfolio = useCarrizo((s) => s.portfolio);
   const auctions = useCarrizo((s) => s.auctions);
+  const marketplaceListings = useCarrizo((s) => s.marketplaceListings);
   const hydrated = useCarrizo((s) => s.hydrated);
   const artist = artists[0];
+  const featuredListings = marketplaceListings
+    .filter((item) => item.status === "publicada")
+    .slice(0, 3);
   const liveAuction = useMemo(
     () =>
       auctions.find((item) => resolveAuctionStatus(item) === "en_vivo") ??
@@ -87,6 +92,18 @@ export default function EstudioPublicPage() {
           >
             Facebook
           </a>
+          <Link
+            href={`/estudio/${studio.slug}/tienda`}
+            onClick={() =>
+              trackMarketingEvent("ViewContent", {
+                source: "marketplace",
+                metadata: { cta: "artist_header_marketplace" },
+              })
+            }
+            className="btn-secondary px-4 py-2 text-sm"
+          >
+            Tienda
+          </Link>
           <Link
             href={`/estudio/${studio.slug}/subasta`}
             onClick={() =>
@@ -194,6 +211,19 @@ export default function EstudioPublicPage() {
                   Ver Facebook
                   <ExternalLink size={15} />
                 </a>
+                <Link
+                  href={`/estudio/${studio.slug}/tienda`}
+                  onClick={() =>
+                    trackMarketingEvent("CTAClick", {
+                      source: "marketplace",
+                      metadata: { cta: "hero_marketplace" },
+                    })
+                  }
+                  className="btn-secondary inline-flex items-center gap-2 px-6 py-3"
+                >
+                  Obras únicas
+                  <ShoppingBag size={15} />
+                </Link>
               </div>
 
               {artist ? (
@@ -271,6 +301,75 @@ export default function EstudioPublicPage() {
                   ))}
                 </div>
               </div>
+            </div>
+          </section>
+        ) : null}
+
+        {featuredListings.length > 0 ? (
+          <section className="mt-10">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="inline-flex items-center gap-2 text-2xl font-semibold">
+                  <ShoppingBag className="text-[#6ee7b7]" size={22} />
+                  Marketplace de obras únicas
+                </h2>
+                <p className="text-sm text-[var(--text-muted)]">
+                  Compra directa estilo marketplace: pieza única, precio fijo y
+                  reserva protegida.
+                </p>
+              </div>
+              <Link
+                href={`/estudio/${studio.slug}/tienda`}
+                onClick={() =>
+                  trackMarketingEvent("CTAClick", {
+                    source: "marketplace",
+                    metadata: { cta: "marketplace_section" },
+                  })
+                }
+                className="btn-primary px-4 py-2 text-sm"
+              >
+                Ver tienda
+              </Link>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {featuredListings.map((listing) => (
+                <Link
+                  key={listing.id}
+                  href={`/estudio/${studio.slug}/obra/${listing.id}`}
+                  onClick={() =>
+                    trackMarketingEvent("ViewContent", {
+                      source: "marketplace",
+                      value: listing.price,
+                      metadata: { listingId: listing.id, cta: "studio_featured_listing" },
+                    })
+                  }
+                  className="card-hover overflow-hidden rounded-3xl border border-[var(--border)] bg-[#0d0d10]"
+                >
+                  <div className="relative h-48">
+                    <Image
+                      src={listing.image}
+                      alt={listing.title}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 1024px) 50vw, 33vw"
+                    />
+                  </div>
+                  <div className="p-4">
+                    <p className="line-clamp-1 font-semibold">{listing.title}</p>
+                    <p className="mt-1 text-sm text-[var(--text-muted)]">
+                      {styleLabel(listing.style)} · stock único
+                    </p>
+                    <p className="mt-3 text-xl font-semibold">
+                      {listing.price.toLocaleString("es-CL", {
+                        style: "currency",
+                        currency: "CLP",
+                        maximumFractionDigits: 0,
+                      })}
+                    </p>
+                  </div>
+                </Link>
+              ))}
             </div>
           </section>
         ) : null}

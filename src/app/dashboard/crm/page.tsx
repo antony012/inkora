@@ -117,26 +117,25 @@ export default function CrmPage() {
     configured?: boolean;
     displayPhone?: string;
     webhookUrl?: string;
-    evolution?: { connectionState?: string; instance?: string; apiUrl?: string };
+    evolution?: {
+      connectionState?: string;
+      connectionStatus?: string;
+      displayStatus?: string;
+      statusDetail?: string;
+      profileName?: string;
+      phone?: string;
+      isLive?: boolean;
+      needsQr?: boolean;
+      disconnectionReason?: string;
+      instance?: string;
+      apiUrl?: string;
+    };
     geminiConfigured?: boolean;
     conversationCount?: number;
   } | null>(null);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [evoQr, setEvoQr] = useState<string | null>(null);
   const [evoConnecting, setEvoConnecting] = useState(false);
-  const [simulateDraft, setSimulateDraft] = useState(
-    "hola! quiero un fine line chico en la muñeca",
-  );
-  const [simulateName, setSimulateName] = useState("Cliente prueba");
-  const [simulateBusy, setSimulateBusy] = useState(false);
-  const [simulateMsg, setSimulateMsg] = useState<string | null>(null);
-  const [showRailwayGuide, setShowRailwayGuide] = useState(false);
-  const [evoHealth, setEvoHealth] = useState<{
-    ok?: boolean;
-    hint?: string;
-    error?: string;
-    apiUrl?: string;
-  } | null>(null);
   const [evoSetupError, setEvoSetupError] = useState<string | null>(null);
   const [evoWebhookWarning, setEvoWebhookWarning] = useState<string | null>(null);
 
@@ -340,7 +339,12 @@ export default function CrmPage() {
       if (res.ok) {
         const data = await res.json();
         setWaStatus(data);
-        if (data.provider === "evolution" && data.evolution?.connectionState !== "open") {
+        if (data.provider === "evolution" && data.evolution?.isLive) {
+          setEvoQr(null);
+          setEvoSetupError(null);
+          return;
+        }
+        if (data.provider === "evolution" && data.evolution?.needsQr) {
           const qrRes = await fetch("/api/evolution/setup");
           if (qrRes.ok) {
             const qrData = (await qrRes.json()) as { qrBase64?: string | null };
@@ -363,59 +367,9 @@ export default function CrmPage() {
     );
   };
 
-  const simulateWhatsAppInbound = async () => {
-    if (!simulateDraft.trim()) return;
-    setSimulateBusy(true);
-    setSimulateMsg(null);
-    try {
-      const res = await fetch("/api/evolution/simulate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: simulateDraft,
-          name: simulateName,
-        }),
-      });
-      const data = (await res.json()) as {
-        ok?: boolean;
-        conversationId?: string;
-        error?: string;
-      };
-      if (!res.ok) {
-        setSimulateMsg(data.error ?? "Error al simular.");
-        return;
-      }
-      setSimulateMsg("Mensaje procesado. El bot respondió con el motor del servidor.");
-      await syncWhatsAppFromServer();
-      await refreshWaStatus();
-      if (data.conversationId) {
-        setSelectedId(data.conversationId);
-        setFilter("en_vivo");
-      }
-    } catch {
-      setSimulateMsg("No se pudo conectar con el servidor.");
-    } finally {
-      setSimulateBusy(false);
-    }
-  };
-
   const waLive =
-    waStatus?.evolution?.connectionState === "open" ||
-    (waStatus?.conversationCount ?? 0) > 0;
-
-  const testEvolutionHealth = async () => {
-    try {
-      const res = await fetch("/api/evolution/health");
-      const data = (await res.json()) as {
-        ok?: boolean;
-        hint?: string;
-        error?: string;
-      };
-      setEvoHealth(data);
-    } catch {
-      setEvoHealth({ ok: false, error: "No se pudo probar la conexión." });
-    }
-  };
+    waStatus?.evolution?.isLive === true ||
+    waStatus?.evolution?.connectionState === "open";
 
   useEffect(() => {
     const load = async () => {
@@ -423,8 +377,12 @@ export default function CrmPage() {
       await refreshWaStatus();
     };
     void load();
-    const timer = setInterval(() => void syncWhatsAppFromServer(), 4000);
-    return () => clearInterval(timer);
+    const syncTimer = setInterval(() => void syncWhatsAppFromServer(), 4000);
+    const statusTimer = setInterval(() => void refreshWaStatus(), 8000);
+    return () => {
+      clearInterval(syncTimer);
+      clearInterval(statusTimer);
+    };
   }, [syncWhatsAppFromServer]);
 
   const waConversationCount = useMemo(
@@ -639,9 +597,10 @@ export default function CrmPage() {
             </p>
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               {waStatus?.provider === "evolution"
-                ? waStatus.evolution?.connectionState === "open"
-                  ? "WhatsApp vinculado por QR. El bot usa Gemini + perfil de Enderxon."
-                  : "Evolution API: escanea el QR con tu WhatsApp para vincular tu número (sin Facebook)."
+                ? waStatus.evolution?.isLive
+                  ? `WhatsApp conectado${waStatus.evolution.profileName ? ` como ${waStatus.evolution.profileName}` : ""}. El bot usa Gemini + perfil de Enderxon.`
+                  : waStatus.evolution?.statusDetail ??
+                    "Evolution API: escanea el QR con tu WhatsApp para vincular tu número (sin Facebook)."
                 : waStatus?.configured
                   ? `Número vinculado${waStatus.displayPhone ? `: ${waStatus.displayPhone}` : ""}.`
                   : "Configura Evolution (recomendado) o Meta WhatsApp API en .env.local."}
@@ -673,15 +632,29 @@ export default function CrmPage() {
 
         {waStatus?.provider === "evolution" ? (
           <div className="mt-3 space-y-3 text-xs text-[var(--text-muted)]">
-            {waStatus.evolution?.connectionState ? (
+            {waStatus.evolution?.displayStatus ? (
               <p>
                 Estado:{" "}
-                <strong className="text-[var(--text)]">
-                  {waStatus.evolution.connectionState}
+                <strong
+                  className={cn(
+                    waStatus.evolution.isLive
+                      ? "text-[#6ee7b7]"
+                      : waStatus.evolution.disconnectionReason
+                        ? "text-[#fca5a5]"
+                        : "text-[#fcd34d]",
+                  )}
+                >
+                  {waStatus.evolution.displayStatus}
                 </strong>
                 {waStatus.evolution.instance
                   ? ` · instancia ${waStatus.evolution.instance}`
                   : ""}
+                {waStatus.evolution.phone ? ` · ${waStatus.evolution.phone}` : ""}
+              </p>
+            ) : null}
+            {waStatus.evolution?.statusDetail && !waStatus.evolution.isLive ? (
+              <p className="rounded-lg border border-[#fbbf2444] bg-[#fbbf2411] px-3 py-2 text-[#fcd34d]">
+                {waStatus.evolution.statusDetail}
               </p>
             ) : null}
             {evoSetupError ? (
@@ -697,7 +670,7 @@ export default function CrmPage() {
                 ) : null}
               </p>
             ) : null}
-            {evoQr ? (
+            {evoQr && !waStatus.evolution?.isLive ? (
               <div className="flex flex-col items-center gap-2 rounded-xl border border-[var(--border)] bg-white p-3 sm:flex-row sm:items-start">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -726,111 +699,6 @@ export default function CrmPage() {
             <code className="block truncate rounded-lg bg-black/30 px-3 py-2 text-[var(--text-dim)]">
               Webhook: {waStatus.webhookUrl}
             </code>
-
-            {waStatus.evolution?.connectionState !== "open" ? (
-              <div className="rounded-xl border border-[#a78bfa44] bg-[#a78bfa11] p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-semibold text-[#c4b5fd]">
-                    Railway (QR sin Docker en tu PC)
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowRailwayGuide((v) => !v)}
-                    className="text-[10px] text-[#c4b5fd] underline"
-                  >
-                    {showRailwayGuide ? "Ocultar pasos" : "Ver pasos"}
-                  </button>
-                </div>
-                {showRailwayGuide ? (
-                  <ol className="mt-2 list-decimal space-y-1 pl-4 text-[10px] leading-relaxed">
-                    <li>
-                      Railway → New Project → Docker image{" "}
-                      <code>evoapicloud/evolution-api:latest</code>
-                    </li>
-                    <li>Agrega PostgreSQL + Redis en el mismo proyecto</li>
-                    <li>
-                      Variables: ver{" "}
-                      <code className="text-[var(--text-dim)]">
-                        deploy/evolution/RAILWAY.md
-                      </code>
-                    </li>
-                    <li>Generate Domain → copia URL a EVOLUTION_API_URL</li>
-                    <li>
-                      <code>ngrok http 3000</code> → NEXT_PUBLIC_APP_URL
-                    </li>
-                    <li>Reinicia npm run dev → Vincular con QR</li>
-                  </ol>
-                ) : (
-                  <p className="mt-1 text-[10px]">
-                    Despliega Evolution gratis en la nube y usa el QR desde el CRM.
-                  </p>
-                )}
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void testEvolutionHealth()}
-                    className="btn-secondary px-3 py-1.5 text-xs"
-                  >
-                    Probar Evolution
-                  </button>
-                  {evoHealth ? (
-                    <span
-                      className={cn(
-                        "text-[10px]",
-                        evoHealth.ok ? "text-[#6ee7b7]" : "text-[#fbbf24]",
-                      )}
-                    >
-                      {evoHealth.ok
-                        ? evoHealth.hint ?? "Conectado"
-                        : evoHealth.error ?? evoHealth.hint}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-
-            {waStatus.evolution?.connectionState !== "open" ? (
-              <div className="rounded-xl border border-[#60a5fa44] bg-[#60a5fa11] p-3">
-                <p className="font-semibold text-[#93c5fd]">
-                  Probar sin Docker (recomendado ahora)
-                </p>
-                <p className="mt-1 text-[10px] leading-relaxed">
-                  Simula un mensaje entrante de WhatsApp. Usa el mismo flujo del
-                  servidor: guarda el chat, califica el lead y responde con{" "}
-                  <strong>Gemini + Enderxon</strong> (no usa el chat demo de abajo).
-                </p>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <input
-                    value={simulateName}
-                    onChange={(e) => setSimulateName(e.target.value)}
-                    placeholder="Nombre del cliente"
-                    className="input py-2 text-xs"
-                  />
-                  <input
-                    value={simulateDraft}
-                    onChange={(e) => setSimulateDraft(e.target.value)}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && void simulateWhatsAppInbound()
-                    }
-                    placeholder="Mensaje del cliente..."
-                    className="input py-2 text-xs sm:col-span-2"
-                  />
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void simulateWhatsAppInbound()}
-                    disabled={simulateBusy || !simulateDraft.trim()}
-                    className="btn-primary px-3 py-1.5 text-xs disabled:opacity-40"
-                  >
-                    {simulateBusy ? "Procesando..." : "Simular WhatsApp + bot"}
-                  </button>
-                  {simulateMsg ? (
-                    <span className="text-[10px] text-[#93c5fd]">{simulateMsg}</span>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
           </div>
         ) : waStatus?.configured ? (
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">

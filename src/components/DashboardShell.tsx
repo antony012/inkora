@@ -20,6 +20,8 @@ import {
   ShieldCheck,
   Eye,
   MessageCircle,
+  ShoppingBag,
+  Sparkles,
 } from "lucide-react";
 import { useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -35,6 +37,8 @@ const nav = [
   { href: "/dashboard/caja", label: "Caja", icon: Wallet },
   { href: "/dashboard/consentimientos", label: "Consentimientos", icon: FileSignature },
   { href: "/dashboard/portafolio", label: "Portafolio", icon: Images },
+  { href: "/dashboard/preview", label: "Preview IA", icon: Sparkles },
+  { href: "/dashboard/marketplace", label: "Marketplace", icon: ShoppingBag },
   { href: "/dashboard/subastas", label: "Subastas", icon: Gavel },
   { href: "/dashboard/sala-admin", label: "Sala admin", icon: Eye },
   { href: "/dashboard/verificaciones", label: "Verificaciones", icon: ShieldCheck },

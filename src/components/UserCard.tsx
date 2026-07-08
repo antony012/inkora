@@ -9,6 +9,7 @@ import {
   Gavel,
   LogOut,
   Settings2,
+  ShoppingBag,
   Sparkles,
 } from "lucide-react";
 import { UserAvatar } from "@/components/UserAvatar";
@@ -189,6 +190,15 @@ export function UserCard({
             >
               <Settings2 size={16} />
               Mi cuenta y verificación
+            </Link>
+            <Link
+              href={`/estudio/${studio.slug}/tienda`}
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--text-muted)] transition hover:bg-[#141418] hover:text-white"
+            >
+              <ShoppingBag size={16} />
+              Tienda de obras únicas
             </Link>
             <Link
               href={`/estudio/${studio.slug}/subasta`}

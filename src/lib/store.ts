@@ -9,12 +9,21 @@ import {
   clients as seedClients,
   consents as seedConsents,
   conversations as seedConversations,
+  marketplaceListings as seedMarketplaceListings,
+  marketplaceOrders as seedMarketplaceOrders,
+  artistSaleContracts as seedArtistSaleContracts,
   payments as seedPayments,
   portfolio as seedPortfolio,
   studio as seedStudio,
   verifiedUsers as seedUsers,
 } from "./seed";
 import { nextMinBid, resolveAuctionStatus, sortBids } from "./auction";
+import {
+  marketplaceSplit,
+  requiresArtistSaleContract,
+  STUDIO_MARKETPLACE_FEE_PERCENT,
+  studioMarketplaceSplit,
+} from "./marketplace";
 import { broadcastAuctionUpdate } from "./live-sync";
 import { removePresence } from "./presence";
 import { DEFAULT_CRM_BOT_CONFIG, type CrmBotConfig } from "./bot-knowledge";
@@ -33,7 +42,9 @@ import {
 import { LEGACY_STUDIO_ADMIN_EMAILS, STUDIO_ADMIN_EMAIL } from "./auth";
 import type {
   Appointment,
+  ArtworkListing,
   Artist,
+  ArtistSaleContract,
   BookingRequestInput,
   Client,
   ConsentForm,
@@ -41,11 +52,14 @@ import type {
   CreateAuctionInput,
   DocumentType,
   MarketingEvent,
+  MarketplaceOrder,
   Payment,
   PortfolioItem,
   SessionPackageId,
   Studio,
   TattooAuction,
+  TattooSize,
+  TattooStyle,
   VerificationStatus,
   VerifiedUser,
   WhatsAppConversation,
@@ -62,6 +76,9 @@ interface CarrizoState {
   consentPreferences: ConsentPreferences;
   marketingEvents: MarketingEvent[];
   auctions: TattooAuction[];
+  marketplaceListings: ArtworkListing[];
+  marketplaceOrders: MarketplaceOrder[];
+  artistSaleContracts: ArtistSaleContract[];
   conversations: WhatsAppConversation[];
   crmBotConfig: CrmBotConfig;
   whatsappConnected: boolean;
@@ -121,6 +138,77 @@ interface CarrizoState {
   syncAuctionStatuses: () => void;
   cancelAuction: (auctionId: string) => void;
   bumpAuctionViewers: (auctionId: string) => void;
+  upsertMarketplaceArtist: (input: {
+    id?: string;
+    name: string;
+    role: string;
+    bio: string;
+    story: string;
+    specialties: TattooStyle[];
+    photoUrl?: string;
+    marketplaceFeePercent?: number;
+    hourlyRate?: number;
+    commissionPercent?: number;
+  }) => string;
+  updateMarketplaceArtist: (
+    artistId: string,
+    patch: Partial<
+      Pick<
+        Artist,
+        | "name"
+        | "role"
+        | "bio"
+        | "story"
+        | "specialties"
+        | "photoUrl"
+        | "marketplaceFeePercent"
+        | "active"
+      >
+    >,
+  ) => void;
+  createMarketplaceListing: (input: {
+    artistId: string;
+    title: string;
+    description: string;
+    story?: string;
+    style: TattooStyle;
+    size?: TattooSize;
+    image: string;
+    price: number;
+    portfolioItemId?: string;
+  }) => string;
+  updateMarketplaceListing: (
+    listingId: string,
+    patch: Partial<
+      Pick<
+        ArtworkListing,
+        "title" | "description" | "story" | "price" | "image" | "style" | "size"
+      >
+    >,
+  ) => void;
+  updateMarketplaceListingStatus: (
+    listingId: string,
+    status: ArtworkListing["status"],
+  ) => void;
+  signArtistSaleContract: (
+    contractId: string,
+    data: { signatureData: string },
+  ) => void;
+  ensureArtistSaleContract: (listingId: string) => {
+    ok: boolean;
+    error?: string;
+    contractId?: string;
+  };
+  bumpListingView: (listingId: string) => void;
+  trackListingClick: (listingId: string) => void;
+  favoriteListing: (listingId: string) => void;
+  purchaseListing: (input: {
+    listingId: string;
+    paymentMethod?: Payment["method"];
+  }) => { ok: boolean; error?: string; orderId?: string };
+  markMarketplaceOrderPaid: (orderId: string) => void;
+  markMarketplaceOrderDelivered: (orderId: string) => void;
+  cancelMarketplaceOrder: (orderId: string) => void;
   createBookingRequest: (input: BookingRequestInput) => {
     appointmentId: string;
     clientId: string;
@@ -185,6 +273,49 @@ function mergeUsersWithSeedPasswords(users: VerifiedUser[]): VerifiedUser[] {
   });
 }
 
+function mergeMarketplaceArtists(persisted?: Artist[]): Artist[] {
+  const custom = (persisted ?? []).filter(
+    (artist) => !seedArtists.some((seed) => seed.id === artist.id),
+  );
+  return seedArtists
+    .map((seed) => {
+      const saved = persisted?.find((artist) => artist.id === seed.id);
+      const merged = saved ? { ...seed, ...saved } : seed;
+      return {
+        ...merged,
+        marketplaceFeePercent: STUDIO_MARKETPLACE_FEE_PERCENT,
+      };
+    })
+    .concat(
+      custom.map((artist) => ({
+        ...artist,
+        marketplaceFeePercent: STUDIO_MARKETPLACE_FEE_PERCENT,
+      })),
+    );
+}
+
+function normalizeArtistSaleContracts(
+  contracts?: ArtistSaleContract[],
+): ArtistSaleContract[] {
+  return (contracts ?? []).map((contract) => {
+    const split = studioMarketplaceSplit(contract.artworkPrice);
+    return {
+      ...contract,
+      studioFeePercent: split.feePercent,
+      studioFee: split.platformFee,
+      artistPayout: split.artistPayout,
+    };
+  });
+}
+
+function mergeMarketplaceListings(persisted?: ArtworkListing[]): ArtworkListing[] {
+  const items = persisted ?? [];
+  const missing = seedMarketplaceListings.filter(
+    (seed) => !items.some((item) => item.id === seed.id),
+  );
+  return [...items, ...missing];
+}
+
 function normalizePhone(value: string) {
   return value.replace(/\D/g, "");
 }
@@ -204,6 +335,9 @@ const initialState = {
   consentPreferences: { analytics: false, marketing: false },
   marketingEvents: [] as MarketingEvent[],
   auctions: seedAuctions,
+  marketplaceListings: seedMarketplaceListings,
+  marketplaceOrders: seedMarketplaceOrders,
+  artistSaleContracts: seedArtistSaleContracts,
   conversations: seedConversations,
   crmBotConfig: DEFAULT_CRM_BOT_CONFIG,
   whatsappConnected: false,
@@ -224,6 +358,8 @@ export const useCarrizo = create<CarrizoState>()(
           consentPreferences: { analytics: false, marketing: false },
           marketingEvents: [],
           auctions: seedAuctions,
+          marketplaceListings: seedMarketplaceListings,
+          marketplaceOrders: seedMarketplaceOrders,
           users: seedUsers,
           crmBotConfig: DEFAULT_CRM_BOT_CONFIG,
           sessionUserId: null,
@@ -695,6 +831,407 @@ export const useCarrizo = create<CarrizoState>()(
           ),
         }));
         broadcastAuctionUpdate();
+      },
+
+      upsertMarketplaceArtist: (input) => {
+        const existing = input.id
+          ? get().artists.find((item) => item.id === input.id)
+          : undefined;
+        const slugBase = input.name
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 40);
+        const artistId = existing?.id ?? uid("artist");
+        const artist: Artist = {
+          id: artistId,
+          name: input.name.trim(),
+          slug: existing?.slug ?? (slugBase || `artista-${artistId.slice(-4)}`),
+          role: input.role.trim(),
+          bio: input.bio.trim(),
+          story: input.story.trim(),
+          specialties: input.specialties.length ? input.specialties : ["otro"],
+          avatar: input.name
+            .split(" ")
+            .map((part) => part[0])
+            .join("")
+            .slice(0, 2)
+            .toUpperCase(),
+          photoUrl: input.photoUrl ?? existing?.photoUrl ?? "/artists/enderxon/avatar.jpg",
+          hourlyRate: input.hourlyRate ?? existing?.hourlyRate ?? 55000,
+          commissionPercent:
+            input.commissionPercent ?? existing?.commissionPercent ?? 70,
+          marketplaceFeePercent: STUDIO_MARKETPLACE_FEE_PERCENT,
+          rating: existing?.rating ?? 4.8,
+          salesCount: existing?.salesCount ?? 0,
+          active: existing?.active ?? true,
+        };
+
+        set((s) => ({
+          artists: existing
+            ? s.artists.map((item) => (item.id === artistId ? artist : item))
+            : [artist, ...s.artists],
+        }));
+        return artistId;
+      },
+
+      updateMarketplaceArtist: (artistId, patch) => {
+        set((s) => ({
+          artists: s.artists.map((artist) =>
+            artist.id === artistId ? { ...artist, ...patch } : artist,
+          ),
+        }));
+      },
+
+      createMarketplaceListing: (input) => {
+        const artistId = input.artistId;
+        const artist = get().artists.find((item) => item.id === artistId);
+        if (!artist) throw new Error("Artista no encontrado");
+        const now = new Date().toISOString();
+        const listingId = uid("artwork");
+        const needsContract = requiresArtistSaleContract(artistId);
+        const split = studioMarketplaceSplit(input.price);
+        const contractId = needsContract ? uid("artist-contract") : undefined;
+        const listing: ArtworkListing = {
+          id: listingId,
+          artistId,
+          portfolioItemId: input.portfolioItemId,
+          title: input.title,
+          description: input.description,
+          story: input.story,
+          style: input.style,
+          size: input.size,
+          image: input.image,
+          price: input.price,
+          status: needsContract ? "borrador" : "publicada",
+          unique: true,
+          views: 0,
+          clicks: 0,
+          favorites: 0,
+          createdAt: now,
+          publishedAt: needsContract ? undefined : now,
+          contractId,
+        };
+
+        const contract: ArtistSaleContract | null = needsContract
+          ? {
+              id: contractId!,
+              artistId,
+              artistName: artist.name,
+              listingId,
+              artworkTitle: input.title,
+              artworkPrice: input.price,
+              studioName: get().studio.name,
+              studioFeePercent: split.feePercent,
+              studioFee: split.platformFee,
+              artistPayout: split.artistPayout,
+              acceptedTerms: false,
+              createdAt: now,
+            }
+          : null;
+
+        set((s) => ({
+          marketplaceListings: [listing, ...s.marketplaceListings],
+          artistSaleContracts: contract
+            ? [contract, ...s.artistSaleContracts]
+            : s.artistSaleContracts,
+        }));
+        return listingId;
+      },
+
+      updateMarketplaceListing: (listingId, patch) => {
+        set((s) => ({
+          marketplaceListings: s.marketplaceListings.map((listing) =>
+            listing.id === listingId ? { ...listing, ...patch } : listing,
+          ),
+        }));
+      },
+
+      updateMarketplaceListingStatus: (listingId, status) => {
+        const state = get();
+        const listing = state.marketplaceListings.find((item) => item.id === listingId);
+        if (!listing) return;
+
+        if (status === "publicada" && requiresArtistSaleContract(listing.artistId)) {
+          const contract = state.artistSaleContracts.find(
+            (item) => item.id === listing.contractId,
+          );
+          if (!contract?.signedAt) return;
+        }
+
+        const now = new Date().toISOString();
+        set((s) => ({
+          marketplaceListings: s.marketplaceListings.map((item) =>
+            item.id === listingId
+              ? {
+                  ...item,
+                  status,
+                  publishedAt:
+                    status === "publicada" ? item.publishedAt ?? now : item.publishedAt,
+                  reservedAt: status === "reservada" ? now : item.reservedAt,
+                  soldAt: status === "vendida" ? now : item.soldAt,
+                }
+              : item,
+          ),
+        }));
+      },
+
+      signArtistSaleContract: (contractId, data) => {
+        const state = get();
+        const contract = state.artistSaleContracts.find((item) => item.id === contractId);
+        if (!contract || contract.signedAt) return;
+
+        const now = new Date().toISOString();
+        set((s) => ({
+          artistSaleContracts: s.artistSaleContracts.map((item) =>
+            item.id === contractId
+              ? {
+                  ...item,
+                  signedAt: now,
+                  signatureData: data.signatureData,
+                  acceptedTerms: true,
+                }
+              : item,
+          ),
+          marketplaceListings: s.marketplaceListings.map((listing) =>
+            listing.id === contract.listingId
+              ? {
+                  ...listing,
+                  status: "publicada" as const,
+                  publishedAt: listing.publishedAt ?? now,
+                }
+              : listing,
+          ),
+        }));
+      },
+
+      ensureArtistSaleContract: (listingId) => {
+        const state = get();
+        const listing = state.marketplaceListings.find((item) => item.id === listingId);
+        if (!listing) {
+          return { ok: false, error: "Obra no encontrada." };
+        }
+        if (!requiresArtistSaleContract(listing.artistId)) {
+          return { ok: false, error: "Las obras de Enderxon no requieren contrato." };
+        }
+
+        if (listing.contractId) {
+          const existing = state.artistSaleContracts.find(
+            (item) => item.id === listing.contractId,
+          );
+          if (existing) {
+            return { ok: true, contractId: existing.id };
+          }
+        }
+
+        const artist = state.artists.find((item) => item.id === listing.artistId);
+        if (!artist) {
+          return { ok: false, error: "Artista no encontrado." };
+        }
+
+        const split = marketplaceSplit(listing.price, artist);
+        const now = new Date().toISOString();
+        const contractId = uid("artist-contract");
+        const contract: ArtistSaleContract = {
+          id: contractId,
+          artistId: listing.artistId,
+          artistName: artist.name,
+          listingId: listing.id,
+          artworkTitle: listing.title,
+          artworkPrice: listing.price,
+          studioName: state.studio.name,
+          studioFeePercent: split.feePercent,
+          studioFee: split.platformFee,
+          artistPayout: split.artistPayout,
+          acceptedTerms: false,
+          createdAt: now,
+        };
+
+        set((s) => ({
+          artistSaleContracts: [contract, ...s.artistSaleContracts],
+          marketplaceListings: s.marketplaceListings.map((item) =>
+            item.id === listingId
+              ? {
+                  ...item,
+                  contractId,
+                  status: item.status === "vendida" || item.status === "reservada"
+                    ? item.status
+                    : ("borrador" as const),
+                  publishedAt:
+                    item.status === "publicada" ? undefined : item.publishedAt,
+                }
+              : item,
+          ),
+        }));
+
+        return { ok: true, contractId };
+      },
+
+      bumpListingView: (listingId) => {
+        set((s) => ({
+          marketplaceListings: s.marketplaceListings.map((listing) =>
+            listing.id === listingId
+              ? { ...listing, views: listing.views + 1 }
+              : listing,
+          ),
+        }));
+      },
+
+      trackListingClick: (listingId) => {
+        set((s) => ({
+          marketplaceListings: s.marketplaceListings.map((listing) =>
+            listing.id === listingId
+              ? { ...listing, clicks: listing.clicks + 1 }
+              : listing,
+          ),
+        }));
+      },
+
+      favoriteListing: (listingId) => {
+        set((s) => ({
+          marketplaceListings: s.marketplaceListings.map((listing) =>
+            listing.id === listingId
+              ? { ...listing, favorites: listing.favorites + 1 }
+              : listing,
+          ),
+        }));
+      },
+
+      purchaseListing: ({ listingId, paymentMethod = "mercadopago" }) => {
+        const state = get();
+        const sessionUserId = state.sessionUserId;
+        if (!sessionUserId) {
+          return { ok: false, error: "Debes iniciar sesión para comprar esta obra." };
+        }
+
+        const user = state.users.find((item) => item.id === sessionUserId);
+        if (!user) return { ok: false, error: "Sesión inválida. Vuelve a ingresar." };
+        if (user.verificationStatus !== "verificado") {
+          return {
+            ok: false,
+            error:
+              user.verificationStatus === "en_revision"
+                ? "Tu documento está en revisión. Podrás comprar cuando sea aprobado."
+                : "Debes tener tu identidad verificada para comprar obras únicas.",
+          };
+        }
+
+        const listing = state.marketplaceListings.find((item) => item.id === listingId);
+        if (!listing) return { ok: false, error: "Obra no encontrada." };
+        if (listing.status !== "publicada") {
+          return { ok: false, error: "Esta obra ya no está disponible." };
+        }
+
+        const artist = state.artists.find((item) => item.id === listing.artistId);
+        const split = marketplaceSplit(listing.price, artist);
+        const now = new Date().toISOString();
+        const orderId = uid("order");
+
+        const order: MarketplaceOrder = {
+          id: orderId,
+          listingId,
+          buyerUserId: user.id,
+          buyerName: user.name,
+          buyerPhone: user.phone,
+          artistId: listing.artistId,
+          amount: listing.price,
+          platformFee: split.platformFee,
+          artistPayout: split.artistPayout,
+          status: "pendiente_pago",
+          paymentMethod,
+          createdAt: now,
+        };
+
+        set((s) => ({
+          marketplaceOrders: [order, ...s.marketplaceOrders],
+          marketplaceListings: s.marketplaceListings.map((item) =>
+            item.id === listingId
+              ? {
+                  ...item,
+                  status: "reservada" as const,
+                  reservedAt: now,
+                  buyerUserId: user.id,
+                  buyerName: user.name,
+                }
+              : item,
+          ),
+        }));
+
+        return { ok: true, orderId };
+      },
+
+      markMarketplaceOrderPaid: (orderId) => {
+        const order = get().marketplaceOrders.find((item) => item.id === orderId);
+        if (!order || order.status === "pagado" || order.status === "entregado") return;
+
+        const payment: Payment = {
+          id: uid("pay"),
+          marketplaceOrderId: order.id,
+          listingId: order.listingId,
+          clientId: order.buyerUserId,
+          artistId: order.artistId,
+          type: "producto",
+          amount: order.amount,
+          method: order.paymentMethod,
+          createdAt: new Date().toISOString(),
+          note: `Marketplace obra única · comisión plataforma ${order.platformFee.toLocaleString("es-CL")} CLP`,
+        };
+
+        set((s) => ({
+          payments: [payment, ...s.payments],
+          marketplaceOrders: s.marketplaceOrders.map((item) =>
+            item.id === orderId
+              ? { ...item, status: "pagado" as const, paidAt: payment.createdAt }
+              : item,
+          ),
+          marketplaceListings: s.marketplaceListings.map((listing) =>
+            listing.id === order.listingId
+              ? { ...listing, status: "vendida" as const, soldAt: payment.createdAt }
+              : listing,
+          ),
+          artists: s.artists.map((artist) =>
+            artist.id === order.artistId
+              ? { ...artist, salesCount: (artist.salesCount ?? 0) + 1 }
+              : artist,
+          ),
+        }));
+      },
+
+      markMarketplaceOrderDelivered: (orderId) => {
+        const now = new Date().toISOString();
+        set((s) => ({
+          marketplaceOrders: s.marketplaceOrders.map((order) =>
+            order.id === orderId
+              ? { ...order, status: "entregado" as const, deliveredAt: now }
+              : order,
+          ),
+        }));
+      },
+
+      cancelMarketplaceOrder: (orderId) => {
+        const order = get().marketplaceOrders.find((item) => item.id === orderId);
+        if (!order) return;
+        const now = new Date().toISOString();
+        set((s) => ({
+          marketplaceOrders: s.marketplaceOrders.map((item) =>
+            item.id === orderId
+              ? { ...item, status: "cancelado" as const, cancelledAt: now }
+              : item,
+          ),
+          marketplaceListings: s.marketplaceListings.map((listing) =>
+            listing.id === order.listingId
+              ? {
+                  ...listing,
+                  status: "publicada" as const,
+                  reservedAt: undefined,
+                  buyerUserId: undefined,
+                  buyerName: undefined,
+                }
+              : listing,
+          ),
+        }));
       },
 
       createBookingRequest: (input) => {
@@ -1477,7 +2014,7 @@ export const useCarrizo = create<CarrizoState>()(
     }),
     {
       name: "carrizo-store-v10",
-      version: 10,
+      version: 13,
       migrate: (persisted) => {
         const state = (persisted ?? {}) as Partial<CarrizoState>;
         const users = mergeUsersWithSeedPasswords(
@@ -1494,9 +2031,16 @@ export const useCarrizo = create<CarrizoState>()(
           ...initialState,
           ...state,
           studio: seedStudio,
-          artists: seedArtists,
+          artists: mergeMarketplaceArtists(state.artists),
           portfolio: seedPortfolio,
           auctions: state.auctions?.length ? state.auctions : seedAuctions,
+          marketplaceListings: mergeMarketplaceListings(state.marketplaceListings),
+          marketplaceOrders: state.marketplaceOrders?.length
+            ? state.marketplaceOrders
+            : seedMarketplaceOrders,
+          artistSaleContracts: normalizeArtistSaleContracts(
+            state.artistSaleContracts ?? seedArtistSaleContracts,
+          ),
           conversations,
           crmBotConfig: {
             ...DEFAULT_CRM_BOT_CONFIG,
@@ -1512,9 +2056,17 @@ export const useCarrizo = create<CarrizoState>()(
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         state.studio = seedStudio;
-        state.artists = seedArtists;
+        state.artists = mergeMarketplaceArtists(state.artists);
         state.portfolio = seedPortfolio;
         if (!state.auctions?.length) state.auctions = seedAuctions;
+        state.marketplaceListings = mergeMarketplaceListings(state.marketplaceListings);
+        if (!state.marketplaceOrders?.length) {
+          state.marketplaceOrders = seedMarketplaceOrders;
+        }
+        if (!state.artistSaleContracts?.length) {
+          state.artistSaleContracts = seedArtistSaleContracts;
+        }
+        state.artistSaleContracts = normalizeArtistSaleContracts(state.artistSaleContracts);
         if (!state.conversations?.length) {
           state.conversations = seedConversations;
         } else {

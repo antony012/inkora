@@ -3,12 +3,14 @@
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { formatMoney } from "@/lib/quote-engine";
+import { STUDIO_MARKETPLACE_FEE_PERCENT } from "@/lib/marketplace";
 import { useCarrizo } from "@/lib/store";
 
 export default function CajaPage() {
   const payments = useCarrizo((s) => s.payments);
   const clients = useCarrizo((s) => s.clients);
   const artists = useCarrizo((s) => s.artists);
+  const marketplaceOrders = useCarrizo((s) => s.marketplaceOrders);
 
   const total = payments.reduce((sum, p) => sum + p.amount, 0);
   const byType = payments.reduce<Record<string, number>>((acc, p) => {
@@ -19,9 +21,29 @@ export default function CajaPage() {
   const commissions = artists.map((artist) => {
     const artistPayments = payments.filter((p) => p.artistId === artist.id);
     const revenue = artistPayments.reduce((sum, p) => sum + p.amount, 0);
-    const artistShare = Math.round((revenue * artist.commissionPercent) / 100);
+    const marketplacePayout = marketplaceOrders
+      .filter(
+        (order) =>
+          order.artistId === artist.id &&
+          (order.status === "pagado" || order.status === "entregado"),
+      )
+      .reduce((sum, order) => sum + order.artistPayout, 0);
+    const marketplaceFee = marketplaceOrders
+      .filter(
+        (order) =>
+          order.artistId === artist.id &&
+          (order.status === "pagado" || order.status === "entregado"),
+      )
+      .reduce((sum, order) => sum + order.platformFee, 0);
+    const serviceRevenue = artistPayments
+      .filter((p) => p.type !== "producto")
+      .reduce((sum, p) => sum + p.amount, 0);
+    const serviceArtistShare = Math.round(
+      (serviceRevenue * artist.commissionPercent) / 100,
+    );
+    const artistShare = serviceArtistShare + marketplacePayout;
     const studioShare = revenue - artistShare;
-    return { artist, revenue, artistShare, studioShare };
+    return { artist, revenue, artistShare, studioShare, marketplaceFee };
   });
 
   return (
@@ -40,7 +62,7 @@ export default function CajaPage() {
             {formatMoney(total)}
           </p>
         </div>
-        {(["seña", "saldo", "propina"] as const).map((type) => (
+        {(["seña", "saldo", "producto"] as const).map((type) => (
           <div key={type} className="card p-5">
             <p className="text-sm capitalize text-[var(--text-muted)]">{type}s</p>
             <p className="mt-2 text-2xl font-semibold">
@@ -55,7 +77,7 @@ export default function CajaPage() {
           <h2 className="font-medium">Comisiones por artista</h2>
         </div>
         <div className="divide-y divide-[var(--border)]">
-          {commissions.map(({ artist, revenue, artistShare, studioShare }) => (
+          {commissions.map(({ artist, revenue, artistShare, studioShare, marketplaceFee }) => (
             <div
               key={artist.id}
               className="grid gap-3 px-5 py-4 sm:grid-cols-4 sm:items-center"
@@ -63,7 +85,8 @@ export default function CajaPage() {
               <div>
                 <p className="font-medium">{artist.name}</p>
                 <p className="text-xs text-[var(--text-dim)]">
-                  {artist.commissionPercent}% artista
+                  {artist.commissionPercent}% sesiones · marketplace fee{" "}
+                  {STUDIO_MARKETPLACE_FEE_PERCENT}%
                 </p>
               </div>
               <div>
@@ -77,6 +100,11 @@ export default function CajaPage() {
               <div>
                 <p className="text-xs text-[var(--text-dim)]">Estudio</p>
                 <p className="text-[#fb7185]">{formatMoney(studioShare)}</p>
+                {marketplaceFee > 0 ? (
+                  <p className="mt-1 text-[10px] text-[var(--text-dim)]">
+                    Incluye {formatMoney(marketplaceFee)} de fees marketplace
+                  </p>
+                ) : null}
               </div>
             </div>
           ))}
@@ -91,6 +119,10 @@ export default function CajaPage() {
           {payments.map((payment) => {
             const client = clients.find((c) => c.id === payment.clientId);
             const artist = artists.find((a) => a.id === payment.artistId);
+            const order = payment.marketplaceOrderId
+              ? marketplaceOrders.find((item) => item.id === payment.marketplaceOrderId)
+              : undefined;
+            const clientName = client?.name ?? order?.buyerName ?? "Comprador marketplace";
             return (
               <div
                 key={payment.id}
@@ -98,7 +130,7 @@ export default function CajaPage() {
               >
                 <div>
                   <p className="font-medium capitalize">
-                    {payment.type} · {client?.name}
+                    {payment.type} · {clientName}
                   </p>
                   <p className="text-sm text-[var(--text-muted)]">
                     {artist?.name} · {payment.method} ·{" "}

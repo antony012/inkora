@@ -46,11 +46,15 @@ export interface Artist {
   slug: string;
   role: string;
   bio: string;
+  story?: string;
   specialties: TattooStyle[];
   avatar: string;
   photoUrl?: string;
   hourlyRate: number;
   commissionPercent: number;
+  marketplaceFeePercent?: number;
+  rating?: number;
+  salesCount?: number;
   active: boolean;
 }
 
@@ -104,6 +108,8 @@ export interface Appointment {
 export interface Payment {
   id: string;
   appointmentId?: string;
+  marketplaceOrderId?: string;
+  listingId?: string;
   clientId: string;
   artistId: string;
   type: PaymentType;
@@ -111,6 +117,79 @@ export interface Payment {
   method: "efectivo" | "transferencia" | "tarjeta" | "mercadopago";
   createdAt: string;
   note?: string;
+}
+
+export type ArtworkListingStatus =
+  | "borrador"
+  | "publicada"
+  | "reservada"
+  | "vendida"
+  | "pausada";
+
+export type MarketplaceOrderStatus =
+  | "pendiente_pago"
+  | "pagado"
+  | "entregado"
+  | "cancelado";
+
+export interface ArtworkListing {
+  id: string;
+  artistId: string;
+  portfolioItemId?: string;
+  title: string;
+  description: string;
+  story?: string;
+  style: TattooStyle;
+  size?: TattooSize;
+  image: string;
+  price: number;
+  status: ArtworkListingStatus;
+  unique: true;
+  views: number;
+  clicks: number;
+  favorites: number;
+  createdAt: string;
+  publishedAt?: string;
+  reservedAt?: string;
+  soldAt?: string;
+  buyerUserId?: string;
+  buyerName?: string;
+  contractId?: string;
+}
+
+export interface ArtistSaleContract {
+  id: string;
+  artistId: string;
+  artistName: string;
+  listingId: string;
+  artworkTitle: string;
+  artworkPrice: number;
+  studioName: string;
+  studioFeePercent: number;
+  studioFee: number;
+  artistPayout: number;
+  signedAt?: string;
+  signatureData?: string;
+  acceptedTerms: boolean;
+  createdAt: string;
+}
+
+export interface MarketplaceOrder {
+  id: string;
+  listingId: string;
+  buyerUserId: string;
+  buyerName: string;
+  buyerPhone?: string;
+  artistId: string;
+  amount: number;
+  platformFee: number;
+  artistPayout: number;
+  status: MarketplaceOrderStatus;
+  paymentMethod: Payment["method"];
+  createdAt: string;
+  paidAt?: string;
+  deliveredAt?: string;
+  cancelledAt?: string;
 }
 
 export interface ConsentForm {
@@ -263,13 +342,24 @@ export type MarketingEventName =
   | "Schedule"
   | "Contact"
   | "CompleteRegistration"
-  | "CTAClick";
+  | "CTAClick"
+  | "AddToCart"
+  | "InitiateCheckout"
+  | "Purchase";
 
 export interface MarketingEvent {
   id: string;
   eventId: string;
   eventName: MarketingEventName;
-  source: "landing" | "studio" | "booking" | "dashboard" | "auction" | "consent";
+  source:
+    | "landing"
+    | "studio"
+    | "booking"
+    | "dashboard"
+    | "auction"
+    | "marketplace"
+    | "consent"
+    | "tattoo_preview";
   path: string;
   channel: "internal" | "meta" | "ga4" | "tiktok";
   value?: number;

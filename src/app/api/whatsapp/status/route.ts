@@ -4,7 +4,7 @@ import {
   getEvolutionWebhookUrl,
   getWhatsAppProvider,
 } from "@/lib/whatsapp/evolution-config";
-import { getEvolutionConnectionState } from "@/lib/whatsapp/evolution-client";
+import { resolveEvolutionInstanceStatus } from "@/lib/whatsapp/evolution-status";
 import { getPublicWebhookUrl, getWhatsAppConfig } from "@/lib/whatsapp/config";
 import { isWhatsAppLiveConfigured } from "@/lib/whatsapp/client";
 import { listWhatsAppConversations } from "@/lib/whatsapp/store";
@@ -14,13 +14,9 @@ export async function GET(request: Request) {
   const meta = getWhatsAppConfig();
   const evolution = getEvolutionConfig();
 
-  let evolutionState: string | undefined;
+  let evolutionStatus: Awaited<ReturnType<typeof resolveEvolutionInstanceStatus>> | undefined;
   if (provider === "evolution" && evolution.isConfigured) {
-    const state = await getEvolutionConnectionState(evolution.instance);
-    evolutionState =
-      (state.ok ? state.data?.instance?.state : undefined) ??
-      (state.ok ? state.data?.state : undefined) ??
-      undefined;
+    evolutionStatus = await resolveEvolutionInstanceStatus(evolution.instance);
   }
 
   const conversations =
@@ -29,17 +25,33 @@ export async function GET(request: Request) {
   return NextResponse.json({
     provider,
     configured: isWhatsAppLiveConfigured(),
-    displayPhone: meta.displayPhone || evolution.displayPhone,
+    displayPhone:
+      meta.displayPhone || evolution.displayPhone || evolutionStatus?.phone,
     phoneNumberId: meta.phoneNumberId,
     webhookUrl:
       provider === "evolution"
         ? getEvolutionWebhookUrl(request)
         : getPublicWebhookUrl(request),
-    evolution: {
-      apiUrl: evolution.apiUrl,
-      instance: evolution.instance,
-      connectionState: evolutionState,
-    },
+    evolution: evolutionStatus
+      ? {
+          apiUrl: evolution.apiUrl,
+          instance: evolution.instance,
+          connectionState: evolutionStatus.state,
+          connectionStatus: evolutionStatus.connectionStatus,
+          displayStatus: evolutionStatus.displayStatus,
+          statusDetail: evolutionStatus.statusDetail,
+          profileName: evolutionStatus.profileName,
+          phone: evolutionStatus.phone,
+          isLive: evolutionStatus.isLive,
+          needsQr: evolutionStatus.needsQr,
+          disconnectionReason: evolutionStatus.disconnectionReason,
+          disconnectionAt: evolutionStatus.disconnectionAt,
+          stateError: evolutionStatus.stateError,
+        }
+      : {
+          apiUrl: evolution.apiUrl,
+          instance: evolution.instance,
+        },
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY?.trim()),
     conversationCount: conversations.length,
   });

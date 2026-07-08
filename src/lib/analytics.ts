@@ -36,6 +36,9 @@ const channelEventNames: Record<MarketingEventName, string> = {
   Contact: "Contact",
   CompleteRegistration: "CompleteRegistration",
   CTAClick: "Contact",
+  AddToCart: "AddToCart",
+  InitiateCheckout: "InitiateCheckout",
+  Purchase: "Purchase",
 };
 
 export function createEventId(eventName: MarketingEventName) {
