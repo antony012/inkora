@@ -29,6 +29,19 @@ npm run dev
 
 Abrí [http://localhost:3000](http://localhost:3000).
 
+## Desplegar en Netlify (temporal)
+
+1. Subí el repo a GitHub (`antony012/inkora`).
+2. En [Netlify](https://app.netlify.com) → **Add new site** → **Import an existing project** → conectá el repo.
+3. Netlify detecta `netlify.toml` automáticamente (build: `npm run build`, plugin Next.js).
+4. **Deploy site** — la demo funciona sin variables de entorno (datos en `localStorage`).
+5. Opcional, después del primer deploy, en **Site settings → Environment variables**:
+   - `NEXT_PUBLIC_APP_URL` = `https://tu-sitio.netlify.app`
+   - `GEMINI_API_KEY` = tu clave (para bot en CRM/WhatsApp)
+   - Variables de Evolution/Meta solo si vas a usar WhatsApp en producción.
+
+> WhatsApp/CRM en Netlify es efímero (sin disco persistente). Para demo del estudio, agenda y consentimientos no hace falta configurar nada extra.
+
 ## Flujo demo recomendado
 
 1. `/` — propuesta de producto
