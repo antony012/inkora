@@ -1,8 +1,10 @@
 import { mergeUsers, resolveSessionUserId } from "./session";
 
+import { CARIZO_STORE_KEY, CARIZO_LIVE_TICK_KEY } from "./storage-keys";
+
 const CHANNEL = "carrizo-auction-live";
-export const AUCTION_STORAGE_KEY = "carrizo-store-v7";
-const TICK_KEY = "carrizo-auction-tick";
+export const AUCTION_STORAGE_KEY = CARIZO_STORE_KEY;
+const TICK_KEY = CARIZO_LIVE_TICK_KEY;
 
 export function broadcastAuctionUpdate() {
   if (typeof window === "undefined") return;

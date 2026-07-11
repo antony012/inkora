@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { useCarrizo } from "@/lib/store";
+import { pushVerificationUserToServer } from "@/lib/verifications/client-sync";
 import {
   verificationBadge,
   verificationLabel,
@@ -21,8 +22,19 @@ const filters: Array<VerificationStatus | "todos"> = [
 export default function VerificacionesPage() {
   const users = useCarrizo((s) => s.users);
   const reviewVerification = useCarrizo((s) => s.reviewVerification);
+  const syncVerificationsFromServer = useCarrizo((s) => s.syncVerificationsFromServer);
   const [filter, setFilter] = useState<VerificationStatus | "todos">("en_revision");
   const [note, setNote] = useState("Documento ilegible o datos no coinciden.");
+
+  useEffect(() => {
+    const localUsers = useCarrizo.getState().users;
+    for (const user of localUsers) {
+      if (user.submittedAt) {
+        void pushVerificationUserToServer(user);
+      }
+    }
+    void syncVerificationsFromServer();
+  }, [syncVerificationsFromServer]);
 
   const pendingCount = users.filter((u) => u.verificationStatus === "en_revision").length;
 

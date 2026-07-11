@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { ConsentBanner } from "@/components/ConsentBanner";
 import { PresenceHeartbeat } from "@/components/PresenceHeartbeat";
 import { MarketingScripts } from "@/components/MarketingScripts";
+import { CARIZO_STORE_KEY } from "@/lib/storage-keys";
 import {
   readPersistedState,
   shouldApplyRemoteAuctions,
@@ -16,8 +17,9 @@ import type { TattooAuction, VerifiedUser } from "@/lib/types";
 const LEGACY_STORE_KEYS = [
   "inkora-store-v6-password",
   "inkora-store-v5-verify",
+  "carrizo-store-v7",
 ] as const;
-const STORE_KEY = "carrizo-store-v7";
+const STORE_KEY = CARIZO_STORE_KEY;
 
 function migrateLegacyStore() {
   if (typeof window === "undefined") return;
@@ -48,6 +50,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
     return useCarrizo.persist.onFinishHydration(finish);
   }, [setHydrated]);
+
+  useEffect(() => {
+    void useCarrizo.getState().syncVerificationsFromServer();
+    const interval = window.setInterval(() => {
+      void useCarrizo.getState().syncVerificationsFromServer();
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     return subscribeAuctionLive(() => {

@@ -25,6 +25,13 @@ import {
   studioMarketplaceSplit,
 } from "./marketplace";
 import { broadcastAuctionUpdate } from "./live-sync";
+import { mergeUsers } from "./session";
+import { CARIZO_STORE_KEY } from "./storage-keys";
+import {
+  fetchVerificationUsersFromServer,
+  pushVerificationReviewToServer,
+  pushVerificationUserToServer,
+} from "./verifications/client-sync";
 import { removePresence } from "./presence";
 import { DEFAULT_CRM_BOT_CONFIG, type CrmBotConfig } from "./bot-knowledge";
 import { quoteSessionPackage } from "./quote-engine";
@@ -258,6 +265,7 @@ interface CarrizoState {
   };
   setCrmBotConfig: (patch: Partial<CrmBotConfig>) => void;
   syncWhatsAppFromServer: () => Promise<void>;
+  syncVerificationsFromServer: () => Promise<void>;
   mergeWhatsAppConversations: (items: WhatsAppConversation[]) => void;
 }
 
@@ -411,6 +419,7 @@ export const useCarrizo = create<CarrizoState>()(
           sessionUserId: userId,
         }));
         broadcastAuctionUpdate();
+        void pushVerificationUserToServer(user);
         return { ok: true, userId };
       },
 
@@ -611,6 +620,8 @@ export const useCarrizo = create<CarrizoState>()(
           ),
         }));
         broadcastAuctionUpdate();
+        const updated = get().users.find((item) => item.id === userId);
+        if (updated) void pushVerificationUserToServer(updated);
         return { ok: true };
       },
 
@@ -631,6 +642,8 @@ export const useCarrizo = create<CarrizoState>()(
       },
 
       reviewVerification: ({ userId, status, reviewNote }) => {
+        const reviewedAt = new Date().toISOString();
+        const reviewedBy = "Equipo Carrizo";
         set((s) => ({
           users: s.users.map((item) =>
             item.id === userId
@@ -638,13 +651,22 @@ export const useCarrizo = create<CarrizoState>()(
                   ...item,
                   verificationStatus: status,
                   reviewNote,
-                  reviewedAt: new Date().toISOString(),
-                  reviewedBy: "Equipo Carrizo",
+                  reviewedAt,
+                  reviewedBy,
                 }
               : item,
           ),
         }));
         broadcastAuctionUpdate();
+        const updated = get().users.find((item) => item.id === userId);
+        if (updated) void pushVerificationUserToServer(updated);
+        void pushVerificationReviewToServer({
+          userId,
+          status,
+          reviewNote,
+          reviewedAt,
+          reviewedBy,
+        });
       },
 
       createAuction: (input) => {
@@ -2011,9 +2033,31 @@ export const useCarrizo = create<CarrizoState>()(
           console.error("WhatsApp sync failed", error);
         }
       },
+
+      syncVerificationsFromServer: async () => {
+        try {
+          const remoteUsers = await fetchVerificationUsersFromServer();
+          if (!remoteUsers.length) return;
+
+          const local = get().users;
+          const merged = mergeUsers(local, remoteUsers).map((user) => {
+            const localUser = local.find((item) => item.id === user.id);
+            if (localUser?.passwordHash && !user.passwordHash) {
+              return { ...user, passwordHash: localUser.passwordHash };
+            }
+            return user;
+          });
+
+          if (JSON.stringify(merged) === JSON.stringify(local)) return;
+          set({ users: merged });
+          broadcastAuctionUpdate();
+        } catch (error) {
+          console.error("Verification sync failed", error);
+        }
+      },
     }),
     {
-      name: "carrizo-store-v10",
+      name: CARIZO_STORE_KEY,
       version: 13,
       migrate: (persisted) => {
         const state = (persisted ?? {}) as Partial<CarrizoState>;
