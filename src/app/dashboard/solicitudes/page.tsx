@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { CheckCircle2, Sparkles, Wallet } from "lucide-react";
 import {
@@ -77,6 +78,30 @@ export default function SolicitudesPage() {
                         <span>Presupuesto: {formatMoney(apt.budget)}</span>
                       ) : null}
                     </div>
+                    {apt.references[0] ? (
+                      <div className="mt-3 overflow-hidden rounded-xl border border-[var(--border)] bg-[#0d0d10] p-2">
+                        <p className="mb-2 text-xs uppercase tracking-wide text-[var(--text-dim)]">
+                          Referencia visual
+                        </p>
+                        <div className="relative h-40 w-full max-w-xs overflow-hidden rounded-lg">
+                          {apt.references[0].startsWith("data:") ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={apt.references[0]}
+                              alt={`Referencia de ${client?.name ?? "cliente"}`}
+                              className="h-full w-full object-contain"
+                            />
+                          ) : (
+                            <Image
+                              src={apt.references[0]}
+                              alt={`Referencia de ${client?.name ?? "cliente"}`}
+                              fill
+                              className="object-contain"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="min-w-[220px] rounded-xl border border-[var(--border)] bg-[#0d0d10] p-4">

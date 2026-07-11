@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
-import { ShieldCheck, Upload } from "lucide-react";
+import { ShieldCheck, Upload, Clock3 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { PasswordField } from "@/components/PasswordField";
 import { ProfilePhotoUpload } from "@/components/UserAvatar";
@@ -23,6 +23,7 @@ import {
   verificationLabel,
 } from "@/lib/verification";
 import type { DocumentType } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 async function fileToDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -269,6 +270,8 @@ function AccesoPageContent() {
     setSuccess(
       "Documento enviado a revisión. Nuestro equipo validará tus datos antes de habilitar pujas.",
     );
+    setPreview("");
+    setFileName("");
   };
 
   if (!hydrated) {
@@ -286,45 +289,49 @@ function AccesoPageContent() {
         <ArtistBadge />
       </header>
 
-      <div className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <section className="tiktok-panel rounded-2xl p-6">
-          <span className="badge badge-rose mb-4">Acceso verificado</span>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Entra, verifica y puja en vivo
-          </h1>
-          <p className="mt-3 text-sm leading-relaxed text-[var(--text-muted)]">
-            Sala protegida de {studio.name}. Regístrate con datos reales, sube tu
-            documento y el equipo habilita tu cuenta para ofertar.
-          </p>
-
-          <div className="mt-6 space-y-3 text-sm text-[var(--text-muted)]">
-            {[
-              "Crea tu cuenta con email, WhatsApp y contraseña segura",
-              "Sube cédula o pasaporte legible",
-              "Revisión del equipo de Enderxon",
-              "Pujas habilitadas al verificar",
-            ].map((item) => (
-              <div key={item} className="flex items-start gap-2">
-                <ShieldCheck size={16} className="mt-0.5 text-[#34d399]" />
-                <span>{item}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-8">
-            <p className="mb-3 text-xs uppercase tracking-wider text-[var(--text-dim)]">
-              Sigue al artista
+      <div
+        className={cn(
+          "mx-auto grid w-full gap-6 px-4 py-6",
+          sessionUser ? "max-w-xl" : "max-w-5xl lg:grid-cols-[0.9fr_1.1fr]",
+        )}
+      >
+        {!sessionUser ? (
+          <section className="tiktok-panel rounded-2xl p-6">
+            <span className="badge badge-rose mb-4">Acceso verificado</span>
+            <p className="text-sm leading-relaxed text-[var(--text-muted)]">
+              Sala protegida de {studio.name}. Regístrate con datos reales, sube tu
+              documento y el equipo habilita tu cuenta para ofertar.
             </p>
-            <SocialStrip studio={studio} />
-          </div>
 
-          <Link
-            href={`/estudio/${studio.slug}/subasta`}
-            className="btn-secondary mt-8 inline-flex px-4 py-2 text-sm"
-          >
-            Volver a la subasta
-          </Link>
-        </section>
+            <div className="mt-6 space-y-3 text-sm text-[var(--text-muted)]">
+              {[
+                "Crea tu cuenta con email, WhatsApp y contraseña segura",
+                "Sube cédula o pasaporte legible",
+                "Revisión del equipo de Enderxon",
+                "Pujas habilitadas al verificar",
+              ].map((item) => (
+                <div key={item} className="flex items-start gap-2">
+                  <ShieldCheck size={16} className="mt-0.5 text-[#34d399]" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8">
+              <p className="mb-3 text-xs uppercase tracking-wider text-[var(--text-dim)]">
+                Sigue al artista
+              </p>
+              <SocialStrip studio={studio} />
+            </div>
+
+            <Link
+              href={`/estudio/${studio.slug}/subasta`}
+              className="btn-secondary mt-8 inline-flex px-4 py-2 text-sm"
+            >
+              Volver a la subasta
+            </Link>
+          </section>
+        ) : null}
 
         <section className="space-y-4">
           {!sessionUser ? (
@@ -593,8 +600,61 @@ function AccesoPageContent() {
                 )}
               </div>
 
-              {sessionUser.verificationStatus !== "verificado" &&
-              sessionUser.verificationStatus !== "rechazado" ? (
+              {sessionUser.verificationStatus === "en_revision" ? (
+                <div
+                  className={cn(
+                    "space-y-4 rounded-2xl border border-[#2a2a2f] bg-[#111114] p-4",
+                    "pointer-events-none select-none opacity-80",
+                  )}
+                  aria-disabled="true"
+                >
+                  <div className="flex items-center gap-2">
+                    <Clock3 size={16} className="text-[var(--text-dim)]" />
+                    <span className="badge badge-amber">En revisión</span>
+                  </div>
+                  <p className="text-sm text-[var(--text-dim)]">
+                    Documento enviado. Esta sección queda bloqueada hasta que el
+                    equipo apruebe tu identidad.
+                  </p>
+
+                  <div>
+                    <p className="label text-[var(--text-dim)]">
+                      Documento de identidad
+                    </p>
+                    <div className="mt-2 flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#2a2a2f] bg-[#0a0a0c] px-4 py-6 text-center">
+                      <Upload className="mb-2 text-[var(--text-dim)]" size={22} />
+                      <span className="text-sm text-[var(--text-dim)]">
+                        {sessionUser.documentFileName || "Documento en revisión"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {sessionUser.documentDataUrl ? (
+                    <div className="relative h-48 overflow-hidden rounded-2xl border border-[#2a2a2f] grayscale">
+                      {sessionUser.documentDataUrl.startsWith("data:") ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={sessionUser.documentDataUrl}
+                          alt="Documento enviado"
+                          className="h-full w-full bg-black object-contain"
+                        />
+                      ) : (
+                        <Image
+                          src={sessionUser.documentDataUrl}
+                          alt="Documento enviado"
+                          fill
+                          className="bg-black object-contain"
+                        />
+                      )}
+                    </div>
+                  ) : null}
+
+                  <div className="inline-flex w-full items-center justify-center rounded-full border border-[#2a2a2f] bg-[#0a0a0c] px-4 py-3 text-sm text-[var(--text-dim)]">
+                    Enviado a revisión
+                  </div>
+                </div>
+              ) : sessionUser.verificationStatus === "pendiente_documento" ||
+                sessionUser.verificationStatus === "rechazado" ? (
                 <form onSubmit={onUpload} className="space-y-3">
                   <div>
                     <label className="label">Documento de identidad</label>

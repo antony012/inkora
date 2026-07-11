@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Upload, X } from "lucide-react";
 import {
   formatMoney,
   quoteSessionPackage,
@@ -22,6 +23,32 @@ const sessionPackages: SessionPackageId[] = [
   "estandar",
   "larga",
 ];
+
+const sessionMobileLabels: Record<SessionPackageId, string> = {
+  una_hora: "1 h",
+  corta: "Corta",
+  estandar: "Estándar",
+  larga: "Larga",
+};
+
+function formatCompactMoney(amount: number) {
+  if (amount >= 1_000_000) {
+    return `$${Math.round(amount / 100_000) / 10}M`;
+  }
+  if (amount >= 1_000) {
+    return `$${Math.round(amount / 1_000)}k`;
+  }
+  return formatMoney(amount);
+}
+
+async function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    reader.readAsDataURL(file);
+  });
+}
 
 const styles: TattooStyle[] = [
   "realismo",
@@ -77,7 +104,9 @@ export default function ReservarPage() {
   const [sessionPackage, setSessionPackage] =
     useState<SessionPackageId>("estandar");
   const [description, setDescription] = useState("");
-  const [budget, setBudget] = useState("");
+  const [referenceFileName, setReferenceFileName] = useState("");
+  const [referencePreview, setReferencePreview] = useState("");
+  const [uploadError, setUploadError] = useState("");
   const [preferredDate, setPreferredDate] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
@@ -114,7 +143,8 @@ export default function ReservarPage() {
       size,
       sessionPackage,
       description,
-      budget: budget ? Number(budget) : undefined,
+      referenceImageUrl: referencePreview || undefined,
+      referenceFileName: referenceFileName || undefined,
       preferredDate: preferredDate || undefined,
     });
     setSubmitted(true);
@@ -149,12 +179,11 @@ export default function ReservarPage() {
 
   return (
     <div className="ink-grid min-h-screen">
-      <header className="mx-auto flex w-full max-w-5xl items-center justify-end px-4 pt-5">
+      <header className="mx-auto flex w-full max-w-3xl items-center justify-end px-4 pt-5">
         <UserCard />
       </header>
-      <div className="mx-auto max-w-5xl px-4 py-4">
-        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <form onSubmit={onSubmit} className="card space-y-5 p-6">
+      <div className="mx-auto max-w-3xl px-4 py-4">
+        <form onSubmit={onSubmit} className="card space-y-5 p-6">
           <div>
             <Link
               href={`/estudio/${studio.slug}`}
@@ -214,7 +243,7 @@ export default function ReservarPage() {
             <p className="mb-3 text-sm text-[var(--text-muted)]">
               Elegí el bloque de tiempo que mejor calza con tu pieza. Precio fijo en CLP.
             </p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2 lg:gap-3">
               {sessionPackages.map((id) => {
                 const pkg = SESSION_PACKAGES[id];
                 const selected = sessionPackage === id;
@@ -223,26 +252,47 @@ export default function ReservarPage() {
                     key={id}
                     type="button"
                     onClick={() => setSessionPackage(id)}
-                    className={`rounded-2xl border p-4 text-left transition ${
+                    className={`rounded-xl border p-2 text-left transition sm:rounded-2xl sm:p-3 lg:p-4 ${
                       selected
                         ? "border-[#d4a853] bg-[#d4a85314] ring-1 ring-[#d4a85366]"
                         : "border-[var(--border)] bg-[#0d0d10] hover:border-[var(--border-strong)]"
                     }`}
                   >
-                    <p className="text-sm font-medium">{pkg.label}</p>
-                    <p className="mt-1 text-lg font-semibold text-[#d4a853]">
-                      {formatMoney(pkg.price)}
+                    <p className="text-[10px] font-medium leading-tight sm:text-sm">
+                      <span className="sm:hidden">{sessionMobileLabels[id]}</span>
+                      <span className="hidden sm:inline">{pkg.label}</span>
                     </p>
-                    <p className="mt-1 text-xs text-[var(--text-muted)]">
+                    <p className="mt-0.5 text-[11px] font-semibold leading-none text-[#d4a853] sm:mt-1 sm:text-lg">
+                      <span className="sm:hidden">{formatCompactMoney(pkg.price)}</span>
+                      <span className="hidden sm:inline">{formatMoney(pkg.price)}</span>
+                    </p>
+                    <p className="mt-0.5 text-[9px] text-[var(--text-muted)] sm:mt-1 sm:text-xs">
                       {sessionHoursLabel(id)}
-                    </p>
-                    <p className="mt-2 text-xs leading-relaxed text-[var(--text-dim)]">
-                      {pkg.description}
                     </p>
                   </button>
                 );
               })}
             </div>
+
+            {quote ? (
+              <div
+                key={sessionPackage}
+                className="mt-3 rounded-2xl border border-[#d4a85344] bg-[#d4a8530d] p-4 animate-fade-up"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="font-medium">{sessionPackageLabel(sessionPackage)}</p>
+                  <p className="text-lg font-semibold text-[#d4a853]">
+                    {formatMoney(quote.suggestedPrice)}
+                  </p>
+                </div>
+                <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
+                  {SESSION_PACKAGES[sessionPackage].description}
+                </p>
+                <div className="mt-3 text-xs text-[var(--text-dim)]">
+                  <span>Duración: {sessionHoursLabel(sessionPackage)}</span>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -303,14 +353,62 @@ export default function ReservarPage() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="label">Presupuesto (opcional)</label>
-              <input
-                className="input"
-                type="number"
-                min={0}
-                value={budget}
-                onChange={(e) => setBudget(e.target.value)}
-              />
+              <label className="label">Imagen de referencia (opcional)</label>
+              <p className="mb-2 text-xs text-[var(--text-dim)]">
+                Sube una foto de inspiración para el diseño. JPG, PNG o WEBP · máx. 4 MB.
+              </p>
+              <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--border-strong)] bg-[#0d0d10] px-4 py-6 text-center transition hover:border-[#d4a85366]">
+                <Upload className="mb-2 text-[var(--accent-glow)]" size={22} />
+                <span className="text-sm">
+                  {referenceFileName || "Toca para subir referencia"}
+                </span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/*"
+                  className="hidden"
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 4 * 1024 * 1024) {
+                      setUploadError("La imagen no puede superar 4 MB.");
+                      return;
+                    }
+                    if (!file.type.startsWith("image/")) {
+                      setUploadError("Solo se permiten imágenes.");
+                      return;
+                    }
+                    const dataUrl = await fileToDataUrl(file);
+                    setReferencePreview(dataUrl);
+                    setReferenceFileName(file.name);
+                    setUploadError("");
+                  }}
+                />
+              </label>
+              {uploadError ? (
+                <p className="mt-2 text-sm text-[var(--accent-glow)]">{uploadError}</p>
+              ) : null}
+              {referencePreview ? (
+                <div className="relative mt-3 overflow-hidden rounded-2xl border border-[var(--border)]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={referencePreview}
+                    alt="Referencia del tatuaje"
+                    className="max-h-48 w-full bg-black object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReferencePreview("");
+                      setReferenceFileName("");
+                      setUploadError("");
+                    }}
+                    className="absolute right-2 top-2 rounded-full border border-[var(--border)] bg-[#0c0c0f]/90 p-1.5 text-[var(--text-muted)] hover:text-white"
+                    aria-label="Quitar imagen de referencia"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : null}
             </div>
             <div>
               <label className="label">Fecha preferida</label>
@@ -327,51 +425,6 @@ export default function ReservarPage() {
             Enviar solicitud
           </button>
         </form>
-
-        <aside className="card h-fit p-6">
-          <p className="text-xs uppercase tracking-wide text-[var(--text-dim)]">
-            Cotización inteligente
-          </p>
-          <h2 className="mt-2 text-xl font-semibold">
-            {sessionPackageLabel(sessionPackage)}
-          </h2>
-          {quote ? (
-            <div className="mt-5 space-y-4">
-              <div>
-                <p className="text-3xl font-semibold text-[#d4a853]">
-                  {formatMoney(quote.suggestedPrice)}
-                </p>
-                <p className="text-sm text-[var(--text-muted)]">
-                  Precio fijo · {sessionHoursLabel(sessionPackage)}
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-xl bg-[#0d0d10] p-3">
-                  <p className="text-[var(--text-dim)]">Duración</p>
-                  <p className="font-medium">{sessionHoursLabel(sessionPackage)}</p>
-                </div>
-                <div className="rounded-xl bg-[#0d0d10] p-3">
-                  <p className="text-[var(--text-dim)]">Seña ({studio.depositPercent}%)</p>
-                  <p className="font-medium">{formatMoney(quote.depositAmount)}</p>
-                </div>
-              </div>
-              <div>
-                <span className="badge badge-rose capitalize">
-                  Complejidad {quote.complexity}
-                </span>
-              </div>
-              <ul className="space-y-2 text-sm text-[var(--text-muted)]">
-                {quote.factors.map((factor) => (
-                  <li key={factor}>• {factor}</li>
-                ))}
-              </ul>
-              <p className="text-xs text-[var(--text-dim)]">
-                Pagás la seña para confirmar el turno. El saldo se abona el día de la sesión.
-              </p>
-            </div>
-          ) : null}
-        </aside>
-        </div>
       </div>
     </div>
   );

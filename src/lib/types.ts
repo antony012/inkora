@@ -239,6 +239,8 @@ export interface BookingRequestInput {
   size: TattooSize;
   description: string;
   sessionPackage: SessionPackageId;
+  referenceImageUrl?: string;
+  referenceFileName?: string;
   budget?: number;
   preferredDate?: string;
 }

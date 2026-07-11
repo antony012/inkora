@@ -1305,7 +1305,7 @@ export const useCarrizo = create<CarrizoState>()(
           zone: input.zone,
           size: input.size,
           description: input.description,
-          references: [],
+          references: input.referenceImageUrl ? [input.referenceImageUrl] : [],
           status: "solicitud",
           startAt: start.toISOString(),
           endAt: end.toISOString(),
