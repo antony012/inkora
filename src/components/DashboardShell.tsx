@@ -23,7 +23,7 @@ import {
   ShoppingBag,
   Sparkles,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { useCarrizo } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -54,6 +54,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const resetDemo = useCarrizo((s) => s.resetDemo);
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   const conversations = useCarrizo((s) => s.conversations);
   const pending = appointments.filter((a) =>
     ["solicitud", "cotizado", "seña_pendiente"].includes(a.status),
@@ -71,21 +80,22 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <div className="mx-auto flex min-h-screen max-w-[1600px]">
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-40 w-72 border-r border-[var(--border)] bg-[#0c0c0f] p-5 transition-transform lg:static lg:translate-x-0",
-            open ? "translate-x-0" : "-translate-x-full",
+            "fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 flex-col border-r border-[var(--border)] bg-[#0c0c0f] transition-transform lg:static lg:translate-x-0",
+            open ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
           )}
         >
-          <div className="mb-8 flex items-center justify-between">
+          <div className="flex shrink-0 items-center justify-between p-5 pb-4">
             <BrandLogo href="/" showTagline variant="compact" size={40} />
             <button
               className="rounded-lg p-2 text-[var(--text-muted)] lg:hidden"
               onClick={() => setOpen(false)}
+              aria-label="Cerrar menú"
             >
               <X size={18} />
             </button>
           </div>
 
-          <nav className="space-y-1">
+          <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-5 pb-4 [-webkit-overflow-scrolling:touch]">
             {nav.map((item) => {
               const active =
                 pathname === item.href ||
@@ -132,7 +142,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          <div className="mt-8 space-y-2 border-t border-[var(--border)] pt-5">
+          <div className="shrink-0 space-y-2 border-t border-[var(--border)] p-5 pt-4">
             <Link
               href={`/estudio/${studio.slug}`}
               className="btn-secondary flex w-full items-center justify-center gap-2 px-3 py-2.5 text-sm"
@@ -163,6 +173,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <button
               className="rounded-lg p-2 text-[var(--text-muted)] lg:hidden"
               onClick={() => setOpen(true)}
+              aria-label="Abrir menú"
             >
               <Menu size={18} />
             </button>
