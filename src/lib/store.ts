@@ -2612,7 +2612,8 @@ function createCarrizoStore() {
         return rest;
       },
       migrate: (persisted) => {
-        const state = (persisted ?? {}) as Partial<CarrizoState>;
+        // Solo datos persistidos (sin acciones del store).
+        const state = (persisted ?? {}) as Partial<typeof initialState>;
         const users = mergeUsersWithSeedPasswords(
           state.users?.length ? state.users : seedUsers,
         );
@@ -2623,6 +2624,7 @@ function createCarrizoStore() {
           ...conv,
           referenceStatus: conv.referenceStatus ?? "sin_referencia",
         }));
+        // Zustand tipa migrate como CarrizoState completo; solo devolvemos datos.
         return {
           ...initialState,
           ...state,
@@ -2648,7 +2650,7 @@ function createCarrizoStore() {
           sessionUserId: null,
           consentPreferences: state.consentPreferences ?? initialState.consentPreferences,
           marketingEvents: state.marketingEvents ?? [],
-        };
+        } as CarrizoState;
       },
       onRehydrateStorage: () => (state) => {
         if (!state) return;
