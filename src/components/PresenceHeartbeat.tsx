@@ -3,7 +3,8 @@
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useSessionUser } from "@/hooks/useSessionUser";
-import { removePresence, touchPresence } from "@/lib/presence";
+import { pushLiveRoomToServer } from "@/lib/live-room/client-sync";
+import { touchPresence } from "@/lib/presence";
 
 export function PresenceHeartbeat() {
   const pathname = usePathname();
@@ -12,18 +13,8 @@ export function PresenceHeartbeat() {
   useEffect(() => {
     if (!sessionUser) return;
 
-    const isAuctionRoom = pathname.includes("/subasta");
-
-    if (
-      isAuctionRoom &&
-      sessionUser.verificationStatus !== "verificado"
-    ) {
-      removePresence(sessionUser.id);
-      return;
-    }
-
     const beat = () => {
-      touchPresence({
+      const entry = {
         userId: sessionUser.id,
         name: sessionUser.name,
         email: sessionUser.email,
@@ -31,15 +22,25 @@ export function PresenceHeartbeat() {
         verificationStatus: sessionUser.verificationStatus,
         profilePhotoUrl: sessionUser.profilePhotoUrl,
         page: pathname,
+        lastSeen: Date.now(),
+      };
+      touchPresence({
+        userId: entry.userId,
+        name: entry.name,
+        email: entry.email,
+        phone: entry.phone,
+        verificationStatus: entry.verificationStatus,
+        profilePhotoUrl: entry.profilePhotoUrl,
+        page: entry.page,
       });
+      void pushLiveRoomToServer({ presenceEntry: entry });
     };
 
     beat();
-    const timer = window.setInterval(beat, 15_000);
+    const timer = window.setInterval(beat, 5_000);
 
     return () => {
       window.clearInterval(timer);
-      removePresence(sessionUser.id);
     };
   }, [sessionUser, pathname]);
 

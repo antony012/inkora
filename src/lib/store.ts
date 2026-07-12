@@ -25,7 +25,9 @@ import {
   studioMarketplaceSplit,
 } from "./marketplace";
 import { broadcastAuctionUpdate } from "./live-sync";
-import { mergeUsers } from "./session";
+import { mergeAuctionLists, sanitizeAuctionsForSync } from "./live-merge";
+import { pushLiveRoomToServer } from "./live-room/client-sync";
+import { mergeUsers, readTabSessionUserId, writeTabSessionUserId } from "./session";
 import { CARIZO_STORE_KEY } from "./storage-keys";
 import {
   fetchVerificationUsersFromServer,
@@ -52,6 +54,7 @@ import type {
   ArtworkListing,
   Artist,
   ArtistSaleContract,
+  AuctionRoomKick,
   BookingRequestInput,
   Client,
   ConsentForm,
@@ -67,6 +70,7 @@ import type {
   TattooAuction,
   TattooSize,
   TattooStyle,
+  UserRole,
   VerificationStatus,
   VerifiedUser,
   WhatsAppConversation,
@@ -83,6 +87,7 @@ interface CarrizoState {
   consentPreferences: ConsentPreferences;
   marketingEvents: MarketingEvent[];
   auctions: TattooAuction[];
+  auctionRoomKicks: AuctionRoomKick[];
   marketplaceListings: ArtworkListing[];
   marketplaceOrders: MarketplaceOrder[];
   artistSaleContracts: ArtistSaleContract[];
@@ -111,6 +116,7 @@ interface CarrizoState {
     password: string;
   }) => Promise<{ ok: boolean; error?: string; isStudioAdmin?: boolean }>;
   ensureStudioAdmin: () => Promise<void>;
+  ensureDemoUserPasswords: () => Promise<void>;
   changePassword: (input: {
     userId: string;
     currentPassword: string;
@@ -137,7 +143,44 @@ interface CarrizoState {
     status: Extract<VerificationStatus, "verificado" | "rechazado">;
     reviewNote?: string;
   }) => void;
+  adminCreateUser: (input: {
+    name: string;
+    email: string;
+    phone: string;
+    rut: string;
+    documentType: DocumentType;
+    password: string;
+    role?: UserRole;
+    verificationStatus?: VerificationStatus;
+  }) => Promise<{ ok: boolean; error?: string; userId?: string }>;
+  adminDeleteUser: (userId: string) => {
+    ok: boolean;
+    error?: string;
+  };
+  adminSetUserBlocked: (input: {
+    userId: string;
+    blocked: boolean;
+    reason?: string;
+  }) => { ok: boolean; error?: string };
+  adminSetUserPassword: (input: {
+    userId: string;
+    newPassword: string;
+  }) => Promise<{ ok: boolean; error?: string }>;
+  adminSetVerificationStatus: (input: {
+    userId: string;
+    status: VerificationStatus;
+    reviewNote?: string;
+  }) => void;
   createAuction: (input: CreateAuctionInput) => string;
+  extendAuction: (auctionId: string, extraMinutes: number) => {
+    ok: boolean;
+    error?: string;
+  };
+  kickAuctionUser: (input: { userId: string; reason?: string }) => {
+    ok: boolean;
+    error?: string;
+  };
+  unkickAuctionUser: (userId: string) => void;
   placeBid: (input: {
     auctionId: string;
     amount: number;
@@ -173,6 +216,20 @@ interface CarrizoState {
       >
     >,
   ) => void;
+  createPortfolioItem: (input: {
+    artistId?: string;
+    title: string;
+    style: TattooStyle;
+    image: string;
+    featured?: boolean;
+  }) => string;
+  updatePortfolioItem: (
+    itemId: string,
+    patch: Partial<
+      Pick<PortfolioItem, "title" | "style" | "image" | "featured" | "artistId">
+    >,
+  ) => void;
+  deletePortfolioItem: (itemId: string) => void;
   createMarketplaceListing: (input: {
     artistId: string;
     title: string;
@@ -274,10 +331,13 @@ const uid = (prefix: string) =>
 
 function mergeUsersWithSeedPasswords(users: VerifiedUser[]): VerifiedUser[] {
   return users.map((user) => {
-    if (user.passwordHash) return user;
     const seedMatch = seedUsers.find((seed) => seed.email === user.email);
-    if (!seedMatch?.passwordHash) return user;
-    return { ...user, passwordHash: seedMatch.passwordHash };
+    if (!seedMatch) return user;
+    return {
+      ...user,
+      passwordHash: user.passwordHash || seedMatch.passwordHash,
+      passwordPlain: user.passwordPlain || seedMatch.passwordPlain,
+    };
   });
 }
 
@@ -324,6 +384,11 @@ function mergeMarketplaceListings(persisted?: ArtworkListing[]): ArtworkListing[
   return [...items, ...missing];
 }
 
+function mergePortfolio(persisted?: PortfolioItem[]): PortfolioItem[] {
+  if (!persisted?.length) return [...seedPortfolio];
+  return persisted;
+}
+
 function normalizePhone(value: string) {
   return value.replace(/\D/g, "");
 }
@@ -343,6 +408,7 @@ const initialState = {
   consentPreferences: { analytics: false, marketing: false },
   marketingEvents: [] as MarketingEvent[],
   auctions: seedAuctions,
+  auctionRoomKicks: [] as AuctionRoomKick[],
   marketplaceListings: seedMarketplaceListings,
   marketplaceOrders: seedMarketplaceOrders,
   artistSaleContracts: seedArtistSaleContracts,
@@ -353,7 +419,8 @@ const initialState = {
   sessionUserId: null as string | null,
 };
 
-export const useCarrizo = create<CarrizoState>()(
+function createCarrizoStore() {
+  return create<CarrizoState>()(
   persist(
     (set, get) => ({
       ...initialState,
@@ -401,6 +468,7 @@ export const useCarrizo = create<CarrizoState>()(
         }
 
         const passwordHash = await hashPassword(input.password);
+        const passwordUpdatedAt = new Date().toISOString();
         const userId = uid("user");
         const user: VerifiedUser = {
           id: userId,
@@ -410,6 +478,8 @@ export const useCarrizo = create<CarrizoState>()(
           rut: input.rut,
           documentType: input.documentType,
           passwordHash,
+          passwordPlain: input.password,
+          passwordUpdatedAt,
           verificationStatus: "pendiente_documento",
           createdAt: new Date().toISOString(),
         };
@@ -418,6 +488,7 @@ export const useCarrizo = create<CarrizoState>()(
           users: [user, ...s.users],
           sessionUserId: userId,
         }));
+        writeTabSessionUserId(userId);
         broadcastAuctionUpdate();
         void pushVerificationUserToServer(user);
         return { ok: true, userId };
@@ -440,8 +511,39 @@ export const useCarrizo = create<CarrizoState>()(
           };
         }
 
+        if (user.blocked) {
+          return {
+            ok: false,
+            error:
+              user.blockedReason?.trim() ||
+              "Esta cuenta está bloqueada. Contacta al estudio.",
+          };
+        }
+
         const valid = await verifyPassword(password, user.passwordHash);
         if (!valid) {
+          // Si el admin ve una clave distinta al hash (desync), realinea y deja entrar.
+          if (user.passwordPlain && user.passwordPlain === password) {
+            const passwordHash = await hashPassword(password);
+            const passwordUpdatedAt = new Date().toISOString();
+            const healed: VerifiedUser = {
+              ...user,
+              passwordHash,
+              passwordPlain: password,
+              passwordUpdatedAt,
+            };
+            set((s) => ({
+              users: s.users.map((item) =>
+                item.id === user.id ? healed : item,
+              ),
+              sessionUserId: user.id,
+            }));
+            writeTabSessionUserId(user.id);
+            void pushVerificationUserToServer(healed);
+            broadcastAuctionUpdate();
+            return { ok: true, isStudioAdmin: user.role === "studio_admin" };
+          }
+
           return {
             ok: false,
             error: "Email o contraseña incorrectos.",
@@ -449,6 +551,7 @@ export const useCarrizo = create<CarrizoState>()(
         }
 
         set({ sessionUserId: user.id });
+        writeTabSessionUserId(user.id);
         broadcastAuctionUpdate();
         return { ok: true, isStudioAdmin: user.role === "studio_admin" };
       },
@@ -477,6 +580,12 @@ export const useCarrizo = create<CarrizoState>()(
           documentType: "cedula",
           profilePhotoUrl: state.studio.avatarUrl,
           passwordHash,
+          passwordPlain:
+            existing?.passwordPlain ??
+            legacy?.passwordPlain ??
+            "Enderxon2026!",
+          passwordUpdatedAt:
+            existing?.passwordUpdatedAt ?? legacy?.passwordUpdatedAt,
           role: "studio_admin",
           verificationStatus: "verificado",
           createdAt:
@@ -491,6 +600,18 @@ export const useCarrizo = create<CarrizoState>()(
           existing.passwordHash &&
           existing.email === email
         ) {
+          if (!existing.passwordPlain) {
+            set((s) => ({
+              users: s.users.map((user) =>
+                user.id === existing.id
+                  ? {
+                      ...user,
+                      passwordPlain: "Enderxon2026!",
+                    }
+                  : user,
+              ),
+            }));
+          }
           if (legacy && legacy.id !== existing.id) {
             set((s) => ({
               users: s.users.filter(
@@ -511,6 +632,107 @@ export const useCarrizo = create<CarrizoState>()(
           ],
         }));
         broadcastAuctionUpdate();
+      },
+
+      ensureDemoUserPasswords: async () => {
+        const demoPasswords: Record<string, string> = {
+          "sofia@email.com": "Sofia2026!",
+          "diego@email.com": "Diego2026!",
+          "ana@email.com": "Ana2026!",
+        };
+
+        const current = get().users;
+        let changed = false;
+        const nextUsers: VerifiedUser[] = [];
+
+        for (const user of current) {
+          const demoPassword = demoPasswords[user.email.toLowerCase()];
+
+          // Cualquier usuario: si hay passwordPlain, el hash debe coincidir.
+          if (user.passwordPlain?.trim()) {
+            const plain = user.passwordPlain;
+            const matches =
+              !!user.passwordHash &&
+              (await verifyPassword(plain, user.passwordHash));
+            if (!matches) {
+              changed = true;
+              nextUsers.push({
+                ...user,
+                passwordHash: await hashPassword(plain),
+                passwordPlain: plain,
+                passwordUpdatedAt: new Date().toISOString(),
+              });
+              continue;
+            }
+          }
+
+          if (!demoPassword) {
+            nextUsers.push(user);
+            continue;
+          }
+
+          // Clave manual distinta a la demo: no pisar.
+          if (user.passwordPlain && user.passwordPlain !== demoPassword) {
+            nextUsers.push(user);
+            continue;
+          }
+
+          if (
+            user.passwordHash &&
+            (await verifyPassword(demoPassword, user.passwordHash))
+          ) {
+            if (!user.passwordUpdatedAt || !user.passwordPlain) {
+              changed = true;
+              nextUsers.push({
+                ...user,
+                passwordPlain: demoPassword,
+                passwordUpdatedAt:
+                  user.passwordUpdatedAt ?? new Date().toISOString(),
+              });
+            } else {
+              nextUsers.push(user);
+            }
+            continue;
+          }
+
+          if (user.passwordUpdatedAt) {
+            const updatedMs = new Date(user.passwordUpdatedAt).getTime();
+            if (Date.now() - updatedMs < 7 * 24 * 60 * 60 * 1000) {
+              nextUsers.push(user);
+              continue;
+            }
+          }
+
+          changed = true;
+          const passwordUpdatedAt = new Date().toISOString();
+          nextUsers.push({
+            ...user,
+            passwordHash: await hashPassword(demoPassword),
+            passwordPlain: demoPassword,
+            passwordUpdatedAt,
+          });
+        }
+
+        if (!nextUsers.some((user) => user.email === "ana@email.com")) {
+          const seedAna = seedUsers.find((user) => user.email === "ana@email.com");
+          if (seedAna) {
+            changed = true;
+            const passwordUpdatedAt = new Date().toISOString();
+            nextUsers.push({
+              ...seedAna,
+              passwordHash: await hashPassword(demoPasswords["ana@email.com"]),
+              passwordPlain: demoPasswords["ana@email.com"],
+              passwordUpdatedAt,
+            });
+          }
+        }
+
+        if (!changed) return;
+        set({ users: nextUsers });
+        for (const email of Object.keys(demoPasswords)) {
+          const updated = get().users.find((user) => user.email === email);
+          if (updated) void pushVerificationUserToServer(updated);
+        }
       },
 
       changePassword: async ({ userId, currentPassword, newPassword }) => {
@@ -537,12 +759,22 @@ export const useCarrizo = create<CarrizoState>()(
         }
 
         const passwordHash = await hashPassword(newPassword);
+        const passwordUpdatedAt = new Date().toISOString();
         set((s) => ({
           users: s.users.map((item) =>
-            item.id === userId ? { ...item, passwordHash } : item,
+            item.id === userId
+              ? {
+                  ...item,
+                  passwordHash,
+                  passwordPlain: newPassword,
+                  passwordUpdatedAt,
+                }
+              : item,
           ),
         }));
         broadcastAuctionUpdate();
+        const updated = get().users.find((item) => item.id === userId);
+        if (updated) void pushVerificationUserToServer(updated);
         return { ok: true };
       },
 
@@ -576,18 +808,29 @@ export const useCarrizo = create<CarrizoState>()(
         }
 
         const passwordHash = await hashPassword(newPassword);
+        const passwordUpdatedAt = new Date().toISOString();
         set((s) => ({
           users: s.users.map((item) =>
-            item.id === user.id ? { ...item, passwordHash } : item,
+            item.id === user.id
+              ? {
+                  ...item,
+                  passwordHash,
+                  passwordPlain: newPassword,
+                  passwordUpdatedAt,
+                }
+              : item,
           ),
         }));
         broadcastAuctionUpdate();
+        const updated = get().users.find((item) => item.id === user.id);
+        if (updated) void pushVerificationUserToServer(updated);
         return { ok: true };
       },
 
       logoutUser: () => {
         const userId = get().sessionUserId;
         if (userId) removePresence(userId);
+        writeTabSessionUserId(null);
         set({ sessionUserId: null });
         broadcastAuctionUpdate();
       },
@@ -669,6 +912,165 @@ export const useCarrizo = create<CarrizoState>()(
         });
       },
 
+      adminCreateUser: async (input) => {
+        const email = input.email.trim().toLowerCase();
+        const exists = get().users.find((user) => user.email === email);
+        if (exists) {
+          return { ok: false, error: "Ya existe una cuenta con ese email." };
+        }
+
+        const strength = validatePasswordStrength(input.password);
+        if (!strength.ok) {
+          return { ok: false, error: strength.errors.join(" ") };
+        }
+
+        const passwordHash = await hashPassword(input.password);
+        const passwordUpdatedAt = new Date().toISOString();
+        const userId = uid("user");
+        const user: VerifiedUser = {
+          id: userId,
+          name: input.name.trim(),
+          email,
+          phone: input.phone.trim(),
+          rut: input.rut.trim(),
+          documentType: input.documentType,
+          passwordHash,
+          passwordPlain: input.password,
+          passwordUpdatedAt,
+          role: input.role ?? "user",
+          verificationStatus: input.verificationStatus ?? "pendiente_documento",
+          createdAt: new Date().toISOString(),
+        };
+
+        set((s) => ({ users: [user, ...s.users] }));
+        broadcastAuctionUpdate();
+        void pushVerificationUserToServer(user);
+        return { ok: true, userId };
+      },
+
+      adminDeleteUser: (userId) => {
+        const user = get().users.find((item) => item.id === userId);
+        if (!user) return { ok: false, error: "Usuario no encontrado." };
+        if (user.role === "studio_admin") {
+          return { ok: false, error: "No puedes eliminar al admin del estudio." };
+        }
+        if (get().sessionUserId === userId) {
+          return { ok: false, error: "No puedes eliminar tu propia sesión." };
+        }
+
+        set((s) => ({
+          users: s.users.filter((item) => item.id !== userId),
+          sessionUserId:
+            s.sessionUserId === userId ? null : s.sessionUserId,
+        }));
+        if (get().sessionUserId === null) writeTabSessionUserId(null);
+        broadcastAuctionUpdate();
+        return { ok: true };
+      },
+
+      adminSetUserBlocked: ({ userId, blocked, reason }) => {
+        const user = get().users.find((item) => item.id === userId);
+        if (!user) return { ok: false, error: "Usuario no encontrado." };
+        if (user.role === "studio_admin") {
+          return { ok: false, error: "No puedes bloquear al admin del estudio." };
+        }
+        if (get().sessionUserId === userId && blocked) {
+          return { ok: false, error: "No puedes bloquear tu propia sesión." };
+        }
+
+        set((s) => ({
+          users: s.users.map((item) =>
+            item.id === userId
+              ? {
+                  ...item,
+                  blocked,
+                  blockedAt: blocked ? new Date().toISOString() : undefined,
+                  blockedReason: blocked
+                    ? reason?.trim() || "Cuenta bloqueada por el estudio."
+                    : undefined,
+                }
+              : item,
+          ),
+          sessionUserId:
+            blocked && s.sessionUserId === userId ? null : s.sessionUserId,
+        }));
+        if (blocked && get().sessionUserId === null) writeTabSessionUserId(null);
+        broadcastAuctionUpdate();
+        const updated = get().users.find((item) => item.id === userId);
+        if (updated) void pushVerificationUserToServer(updated);
+        return { ok: true };
+      },
+
+      adminSetUserPassword: async ({ userId, newPassword }) => {
+        const user = get().users.find((item) => item.id === userId);
+        if (!user) return { ok: false, error: "Usuario no encontrado." };
+
+        const strength = validatePasswordStrength(newPassword);
+        if (!strength.ok) {
+          return { ok: false, error: strength.errors.join(" ") };
+        }
+
+        const passwordHash = await hashPassword(newPassword);
+        const passwordUpdatedAt = new Date().toISOString();
+        set((s) => ({
+          users: s.users.map((item) =>
+            item.id === userId
+              ? {
+                  ...item,
+                  passwordHash,
+                  passwordPlain: newPassword,
+                  passwordUpdatedAt,
+                }
+              : item,
+          ),
+        }));
+        broadcastAuctionUpdate();
+        const updated = get().users.find((item) => item.id === userId);
+        if (updated) void pushVerificationUserToServer(updated);
+        return { ok: true };
+      },
+
+      adminSetVerificationStatus: ({ userId, status, reviewNote }) => {
+        const reviewedAt = new Date().toISOString();
+        const reviewedBy = "Equipo Carrizo";
+        set((s) => ({
+          users: s.users.map((item) =>
+            item.id === userId
+              ? {
+                  ...item,
+                  verificationStatus: status,
+                  reviewNote:
+                    status === "rechazado"
+                      ? reviewNote || item.reviewNote
+                      : status === "verificado"
+                        ? "Identidad validada por el equipo."
+                        : undefined,
+                  reviewedAt:
+                    status === "verificado" || status === "rechazado"
+                      ? reviewedAt
+                      : item.reviewedAt,
+                  reviewedBy:
+                    status === "verificado" || status === "rechazado"
+                      ? reviewedBy
+                      : item.reviewedBy,
+                }
+              : item,
+          ),
+        }));
+        broadcastAuctionUpdate();
+        const updated = get().users.find((item) => item.id === userId);
+        if (updated) void pushVerificationUserToServer(updated);
+        if (status === "verificado" || status === "rechazado") {
+          void pushVerificationReviewToServer({
+            userId,
+            status,
+            reviewNote: updated?.reviewNote,
+            reviewedAt,
+            reviewedBy,
+          });
+        }
+      },
+
       createAuction: (input) => {
         const artistId = get().artists[0]?.id ?? "artist-1";
         const now = new Date();
@@ -693,9 +1095,92 @@ export const useCarrizo = create<CarrizoState>()(
           createdAt: now.toISOString(),
         };
 
-        set((s) => ({ auctions: [auction, ...s.auctions] }));
-        broadcastAuctionUpdate();
+        set((s) => ({
+          auctions: [
+            auction,
+            ...s.auctions.map((item) => {
+              if (resolveAuctionStatus(item) !== "en_vivo") return item;
+              const bids = sortBids(item.bids);
+              const leader = bids[0];
+              return {
+                ...item,
+                bids,
+                currentBid: leader?.amount ?? item.startingPrice,
+                status: "finalizada" as const,
+                winnerName: leader?.bidderName,
+                winnerPhone: leader?.bidderPhone,
+              };
+            }),
+          ],
+          auctionRoomKicks: [],
+        }));
+        broadcastAuctionUpdate({ pushServer: false });
+        void pushLiveRoomToServer({
+          auctions: sanitizeAuctionsForSync(get().auctions),
+        });
         return auctionId;
+      },
+
+      extendAuction: (auctionId, extraMinutes) => {
+        const minutes = Math.max(1, Math.min(240, Math.round(extraMinutes)));
+        const auction = get().auctions.find((item) => item.id === auctionId);
+        if (!auction) return { ok: false, error: "Subasta no encontrada" };
+
+        const status = resolveAuctionStatus(auction);
+        if (status !== "en_vivo") {
+          return { ok: false, error: "Solo puedes extender una subasta en vivo" };
+        }
+
+        const base = Math.max(Date.now(), new Date(auction.endsAt).getTime());
+        const endsAt = new Date(base + minutes * 60 * 1000).toISOString();
+
+        set((s) => ({
+          auctions: s.auctions.map((item) =>
+            item.id === auctionId ? { ...item, endsAt, status: "en_vivo" } : item,
+          ),
+        }));
+        broadcastAuctionUpdate({ pushServer: false });
+        void pushLiveRoomToServer({
+          auctions: sanitizeAuctionsForSync(get().auctions),
+        });
+        return { ok: true };
+      },
+
+      kickAuctionUser: ({ userId, reason }) => {
+        const user = get().users.find((item) => item.id === userId);
+        if (!user) return { ok: false, error: "Usuario no encontrado" };
+        if (user.role === "studio_admin") {
+          return { ok: false, error: "No puedes expulsar al admin del estudio" };
+        }
+
+        removePresence(userId);
+        const kick = {
+          userId,
+          reason:
+            reason?.trim() || "Expulsado de la sala por el administrador",
+          kickedAt: new Date().toISOString(),
+        };
+        set((s) => ({
+          auctionRoomKicks: [
+            kick,
+            ...s.auctionRoomKicks.filter((item) => item.userId !== userId),
+          ],
+        }));
+        void pushLiveRoomToServer({ kickUser: kick }).then(() => {
+          broadcastAuctionUpdate();
+        });
+        return { ok: true };
+      },
+
+      unkickAuctionUser: (userId) => {
+        set((s) => ({
+          auctionRoomKicks: s.auctionRoomKicks.filter(
+            (item) => item.userId !== userId,
+          ),
+        }));
+        void pushLiveRoomToServer({ unkickUserId: userId }).then(() => {
+          broadcastAuctionUpdate();
+        });
       },
 
       placeBid: ({ auctionId, amount }) => {
@@ -711,6 +1196,20 @@ export const useCarrizo = create<CarrizoState>()(
         const user = get().users.find((item) => item.id === sessionUserId);
         if (!user) {
           return { ok: false, error: "Sesión inválida. Vuelve a ingresar." };
+        }
+        if (user.blocked) {
+          return {
+            ok: false,
+            error:
+              user.blockedReason?.trim() ||
+              "Tu cuenta está bloqueada y no puedes pujar.",
+          };
+        }
+        if (get().auctionRoomKicks.some((item) => item.userId === sessionUserId)) {
+          return {
+            ok: false,
+            error: "Fuiste expulsado de la sala. No puedes pujar en esta subasta.",
+          };
         }
         if (user.verificationStatus !== "verificado") {
           if (user.verificationStatus === "en_revision") {
@@ -782,7 +1281,15 @@ export const useCarrizo = create<CarrizoState>()(
           }),
         }));
 
-        broadcastAuctionUpdate();
+        broadcastAuctionUpdate({ pushServer: false });
+        // Empuja al servidor de inmediato (navegadores distintos).
+        void pushLiveRoomToServer({
+          auctions: sanitizeAuctionsForSync(get().auctions),
+        }).then((remote) => {
+          if (!remote?.auctions?.length) return;
+          const merged = mergeAuctionLists(get().auctions, remote.auctions);
+          set({ auctions: merged });
+        });
         return { ok: true };
       },
 
@@ -841,7 +1348,10 @@ export const useCarrizo = create<CarrizoState>()(
               : auction,
           ),
         }));
-        broadcastAuctionUpdate();
+        broadcastAuctionUpdate({ pushServer: false });
+        void pushLiveRoomToServer({
+          auctions: sanitizeAuctionsForSync(get().auctions),
+        });
       },
 
       bumpAuctionViewers: (auctionId) => {
@@ -903,6 +1413,46 @@ export const useCarrizo = create<CarrizoState>()(
         set((s) => ({
           artists: s.artists.map((artist) =>
             artist.id === artistId ? { ...artist, ...patch } : artist,
+          ),
+        }));
+      },
+
+      createPortfolioItem: (input) => {
+        const artistId = input.artistId ?? get().artists[0]?.id ?? "artist-1";
+        const itemId = uid("port");
+        const item: PortfolioItem = {
+          id: itemId,
+          artistId,
+          title: input.title.trim() || "Sin título",
+          style: input.style,
+          image: input.image,
+          featured: input.featured ?? true,
+        };
+        set((s) => ({ portfolio: [item, ...s.portfolio] }));
+        return itemId;
+      },
+
+      updatePortfolioItem: (itemId, patch) => {
+        set((s) => ({
+          portfolio: s.portfolio.map((item) =>
+            item.id === itemId
+              ? {
+                  ...item,
+                  ...patch,
+                  title: patch.title !== undefined ? patch.title.trim() || item.title : item.title,
+                }
+              : item,
+          ),
+        }));
+      },
+
+      deletePortfolioItem: (itemId) => {
+        set((s) => ({
+          portfolio: s.portfolio.filter((item) => item.id !== itemId),
+          marketplaceListings: s.marketplaceListings.map((listing) =>
+            listing.portfolioItemId === itemId
+              ? { ...listing, portfolioItemId: undefined }
+              : listing,
           ),
         }));
       },
@@ -2040,17 +2590,10 @@ export const useCarrizo = create<CarrizoState>()(
           if (!remoteUsers.length) return;
 
           const local = get().users;
-          const merged = mergeUsers(local, remoteUsers).map((user) => {
-            const localUser = local.find((item) => item.id === user.id);
-            if (localUser?.passwordHash && !user.passwordHash) {
-              return { ...user, passwordHash: localUser.passwordHash };
-            }
-            return user;
-          });
+          const merged = mergeUsers(local, remoteUsers);
 
           if (JSON.stringify(merged) === JSON.stringify(local)) return;
           set({ users: merged });
-          broadcastAuctionUpdate();
         } catch (error) {
           console.error("Verification sync failed", error);
         }
@@ -2058,7 +2601,16 @@ export const useCarrizo = create<CarrizoState>()(
     }),
     {
       name: CARIZO_STORE_KEY,
-      version: 13,
+      version: 16,
+      partialize: (state) => {
+        // Sesión por pestaña (sessionStorage). No compartirla entre admin y postor.
+        const {
+          sessionUserId: _ignoredSession,
+          hydrated: _ignoredHydrated,
+          ...rest
+        } = state;
+        return rest;
+      },
       migrate: (persisted) => {
         const state = (persisted ?? {}) as Partial<CarrizoState>;
         const users = mergeUsersWithSeedPasswords(
@@ -2076,8 +2628,9 @@ export const useCarrizo = create<CarrizoState>()(
           ...state,
           studio: seedStudio,
           artists: mergeMarketplaceArtists(state.artists),
-          portfolio: seedPortfolio,
+          portfolio: mergePortfolio(state.portfolio),
           auctions: state.auctions?.length ? state.auctions : seedAuctions,
+          auctionRoomKicks: state.auctionRoomKicks ?? [],
           marketplaceListings: mergeMarketplaceListings(state.marketplaceListings),
           marketplaceOrders: state.marketplaceOrders?.length
             ? state.marketplaceOrders
@@ -2101,8 +2654,25 @@ export const useCarrizo = create<CarrizoState>()(
         if (!state) return;
         state.studio = seedStudio;
         state.artists = mergeMarketplaceArtists(state.artists);
-        state.portfolio = seedPortfolio;
+        state.portfolio = mergePortfolio(state.portfolio);
         if (!state.auctions?.length) state.auctions = seedAuctions;
+        if (!state.auctionRoomKicks) state.auctionRoomKicks = [];
+        state.sessionUserId = readTabSessionUserId();
+        // Si hay una subasta real en vivo, cierra el demo seed para no taparla en admin.
+        const hasCustomLive = state.auctions.some(
+          (item) =>
+            item.id !== "auction-live-1" &&
+            item.status !== "cancelada" &&
+            item.status !== "finalizada" &&
+            new Date(item.endsAt).getTime() > Date.now(),
+        );
+        if (hasCustomLive) {
+          state.auctions = state.auctions.map((item) =>
+            item.id === "auction-live-1" && item.status === "en_vivo"
+              ? { ...item, status: "finalizada" as const }
+              : item,
+          );
+        }
         state.marketplaceListings = mergeMarketplaceListings(state.marketplaceListings);
         if (!state.marketplaceOrders?.length) {
           state.marketplaceOrders = seedMarketplaceOrders;
@@ -2132,4 +2702,21 @@ export const useCarrizo = create<CarrizoState>()(
       },
     },
   ),
-);
+  );
+}
+
+const CARRIZO_STORE_GLOBAL = "__carrizo_zustand_singleton__";
+
+type CarrizoHook = ReturnType<typeof createCarrizoStore>;
+
+function getCarrizoStore(): CarrizoHook {
+  const globalRef = globalThis as typeof globalThis & {
+    [CARRIZO_STORE_GLOBAL]?: CarrizoHook;
+  };
+  if (!globalRef[CARRIZO_STORE_GLOBAL]) {
+    globalRef[CARRIZO_STORE_GLOBAL] = createCarrizoStore();
+  }
+  return globalRef[CARRIZO_STORE_GLOBAL];
+}
+
+export const useCarrizo = getCarrizoStore();

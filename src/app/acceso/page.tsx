@@ -3,12 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useState } from "react";
-import { ShieldCheck, Upload, Clock3 } from "lucide-react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
+import { Upload, Clock3 } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { PasswordField } from "@/components/PasswordField";
 import { ProfilePhotoUpload } from "@/components/UserAvatar";
-import { ArtistBadge, SocialStrip } from "@/components/SocialStrip";
+import { ArtistBadge } from "@/components/SocialStrip";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import { useCarrizo } from "@/lib/store";
 import { postLoginPath } from "@/lib/auth";
@@ -52,6 +52,7 @@ function AccesoPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const loginFrom = searchParams.get("from");
+  const modeParam = searchParams.get("mode");
   const registerUser = useCarrizo((s) => s.registerUser);
   const loginUser = useCarrizo((s) => s.loginUser);
   const changePassword = useCarrizo((s) => s.changePassword);
@@ -62,7 +63,21 @@ function AccesoPageContent() {
   const studio = useCarrizo((s) => s.studio);
   const { hydrated, sessionUser } = useSessionUser();
 
-  const [mode, setMode] = useState<"login" | "register" | "recover">("register");
+  const initialMode =
+    modeParam === "login" || modeParam === "recover" || modeParam === "register"
+      ? modeParam
+      : "login";
+  const [mode, setMode] = useState<"login" | "register" | "recover">(initialMode);
+
+  useEffect(() => {
+    if (
+      modeParam === "login" ||
+      modeParam === "recover" ||
+      modeParam === "register"
+    ) {
+      setMode(modeParam);
+    }
+  }, [modeParam]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -289,50 +304,7 @@ function AccesoPageContent() {
         <ArtistBadge />
       </header>
 
-      <div
-        className={cn(
-          "mx-auto grid w-full gap-6 px-4 py-6",
-          sessionUser ? "max-w-xl" : "max-w-5xl lg:grid-cols-[0.9fr_1.1fr]",
-        )}
-      >
-        {!sessionUser ? (
-          <section className="tiktok-panel rounded-2xl p-6">
-            <span className="badge badge-rose mb-4">Acceso verificado</span>
-            <p className="text-sm leading-relaxed text-[var(--text-muted)]">
-              Sala protegida de {studio.name}. Regístrate con datos reales, sube tu
-              documento y el equipo habilita tu cuenta para ofertar.
-            </p>
-
-            <div className="mt-6 space-y-3 text-sm text-[var(--text-muted)]">
-              {[
-                "Crea tu cuenta con email, WhatsApp y contraseña segura",
-                "Sube cédula o pasaporte legible",
-                "Revisión del equipo de Enderxon",
-                "Pujas habilitadas al verificar",
-              ].map((item) => (
-                <div key={item} className="flex items-start gap-2">
-                  <ShieldCheck size={16} className="mt-0.5 text-[#34d399]" />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-8">
-              <p className="mb-3 text-xs uppercase tracking-wider text-[var(--text-dim)]">
-                Sigue al artista
-              </p>
-              <SocialStrip studio={studio} />
-            </div>
-
-            <Link
-              href={`/estudio/${studio.slug}/subasta`}
-              className="btn-secondary mt-8 inline-flex px-4 py-2 text-sm"
-            >
-              Volver a la subasta
-            </Link>
-          </section>
-        ) : null}
-
+      <div className="mx-auto grid w-full max-w-xl gap-6 px-4 py-6">
         <section className="space-y-4">
           {!sessionUser ? (
             <div className="card p-6">
@@ -346,16 +318,7 @@ function AccesoPageContent() {
               ) : (
                 <div className="mb-4 flex gap-2">
                   <button
-                    className={
-                      mode === "register"
-                        ? "btn-primary px-4 py-2 text-sm"
-                        : "btn-secondary px-4 py-2 text-sm"
-                    }
-                    onClick={() => switchMode("register")}
-                  >
-                    Crear cuenta
-                  </button>
-                  <button
+                    type="button"
                     className={
                       mode === "login"
                         ? "btn-primary px-4 py-2 text-sm"
@@ -364,6 +327,17 @@ function AccesoPageContent() {
                     onClick={() => switchMode("login")}
                   >
                     Iniciar sesión
+                  </button>
+                  <button
+                    type="button"
+                    className={
+                      mode === "register"
+                        ? "btn-primary px-4 py-2 text-sm"
+                        : "btn-secondary px-4 py-2 text-sm"
+                    }
+                    onClick={() => switchMode("register")}
+                  >
+                    Crear cuenta
                   </button>
                 </div>
               )}
@@ -517,18 +491,6 @@ function AccesoPageContent() {
                   >
                     Volver a iniciar sesión
                   </button>
-                ) : null}
-                {mode !== "recover" ? (
-                  <div className="space-y-1 text-xs text-[var(--text-dim)]">
-                    <p>
-                      Cliente demo: sofia@email.com ·{" "}
-                      <span className="font-mono">Sofia2026!</span>
-                    </p>
-                    <p>
-                      Admin del estudio: enderxon@carrizo.cl ·{" "}
-                      <span className="font-mono">Enderxon2026!</span>
-                    </p>
-                  </div>
                 ) : null}
               </form>
             </div>

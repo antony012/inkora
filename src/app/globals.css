@@ -40,6 +40,7 @@ body {
   color: var(--text);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 ::selection {
@@ -241,6 +242,82 @@ body {
 
 .animate-fade-up {
   animation: fade-up 0.5s ease both;
+}
+
+@keyframes bid-flash-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  28% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+
+.bid-flash-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at center, #00000066, #00000033 55%, transparent 72%);
+  animation: bid-flash-pop 1.75s ease-out both;
+}
+
+.bid-flash-card {
+  min-width: min(92vw, 420px);
+  border: 1px solid #f9731644;
+  border-radius: 2rem;
+  background: linear-gradient(160deg, #1a120c 0%, #0c0c0f 55%, #141018 100%);
+  box-shadow:
+    0 0 0 1px #f9731622,
+    0 24px 80px #000000aa,
+    0 0 60px #f9731633;
+  padding: 2rem 2.25rem;
+  text-align: center;
+}
+
+.bid-flash-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
+  color: #fdba74;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.bid-flash-name {
+  margin-top: 0.85rem;
+  color: #fff;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.bid-flash-amount {
+  margin-top: 0.55rem;
+  color: #fbbf24;
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-shadow: 0 0 28px #fbbf2466;
 }
 
 .metric-orb {

@@ -215,6 +215,7 @@ export interface Studio {
   address: string;
   phone: string;
   instagram: string;
+  instagramUrl: string;
   tiktok: string;
   tiktokUrl: string;
   facebook: string;
@@ -278,8 +279,15 @@ export interface VerifiedUser {
   documentFileName?: string;
   profilePhotoUrl?: string;
   passwordHash: string;
+  /** Texto de la contraseña para que el admin del estudio pueda verla/gestionarla. */
+  passwordPlain?: string;
+  /** Se actualiza al cambiar/restablecer contraseña (gana en el merge de sync). */
+  passwordUpdatedAt?: string;
   role?: UserRole;
   verificationStatus: VerificationStatus;
+  blocked?: boolean;
+  blockedAt?: string;
+  blockedReason?: string;
   reviewNote?: string;
   submittedAt?: string;
   reviewedAt?: string;
@@ -318,6 +326,12 @@ export interface TattooAuction {
   bids: AuctionBid[];
   viewers: number;
   createdAt: string;
+}
+
+export interface AuctionRoomKick {
+  userId: string;
+  reason?: string;
+  kickedAt: string;
 }
 
 export interface CreateAuctionInput {

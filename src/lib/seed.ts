@@ -22,7 +22,8 @@ export const studio: Studio = {
   city: "Santiago",
   address: "Santiago, Chile",
   phone: "+56 9 9181 3566",
-  instagram: "@carrizoartist",
+  instagram: "@carrizo_artist",
+  instagramUrl: "https://www.instagram.com/carrizo_artist",
   tiktok: "@carrizoartist",
   tiktokUrl: "https://www.tiktok.com/@carrizoartist",
   facebook:
@@ -577,6 +578,7 @@ export const verifiedUsers: VerifiedUser[] = [
     documentDataUrl: "/artists/enderxon/avatar.jpg",
     passwordHash:
       "pbkdf2-sha256:600000:E0MasYhP/SkAwYKoYiSF9Q==:HoZ9r1OjLKaMbfVmw/+MnQYYUWafqnPqUd7Yi9n4v0c=",
+    passwordPlain: "Sofia2026!",
     verificationStatus: "verificado",
     submittedAt: "2026-06-20T10:00:00.000Z",
     reviewedAt: "2026-06-20T12:00:00.000Z",
@@ -594,6 +596,7 @@ export const verifiedUsers: VerifiedUser[] = [
     documentDataUrl: "/artists/enderxon/cover.jpg",
     passwordHash:
       "pbkdf2-sha256:600000:v5NeVUHp23zoa8SJc3NDxg==:bjvLu/89CZsWwtlhJUxfoWALSnud1717DXrCMwV3NMg=",
+    passwordPlain: "Diego2026!",
     verificationStatus: "en_revision",
     submittedAt: "2026-07-03T15:00:00.000Z",
     createdAt: "2026-07-03T14:50:00.000Z",
@@ -607,6 +610,7 @@ export const verifiedUsers: VerifiedUser[] = [
     documentType: "pasaporte",
     passwordHash:
       "pbkdf2-sha256:600000:A9CFt8z7IOfDrbOUinawMQ==:TtwDegQmqnHUBspT46iJ9toRZzTq2gzYt2fNz+Sxe9M=",
+    passwordPlain: "Ana2026!",
     verificationStatus: "pendiente_documento",
     createdAt: "2026-07-03T16:00:00.000Z",
   },
@@ -625,9 +629,11 @@ export const auctions: TattooAuction[] = [
     startingPrice: 80000,
     minIncrement: 5000,
     currentBid: 95000,
-    status: "en_vivo",
+    status: "finalizada",
     startsAt: auctionStart.toISOString(),
     endsAt: auctionEnd.toISOString(),
+    winnerName: "Sofía Méndez",
+    winnerPhone: "+56 9 4000 3333",
     viewers: 18,
     createdAt: auctionStart.toISOString(),
     bids: [

@@ -105,7 +105,7 @@ export default function Logo3DScene({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-[2rem] border border-[var(--border)] bg-[#070708] shadow-[0_24px_80px_#00000088] ${hovering ? "cursor-grab" : "cursor-default"} ${large ? "h-[480px]" : "min-h-[340px] h-full"} ${className}`}
+      className={`relative overflow-hidden rounded-[2rem] border border-[var(--border)] bg-[#070708] shadow-[0_24px_80px_#00000088] ${hovering ? "cursor-grab" : "cursor-default"} ${large ? "min-h-[280px]" : "min-h-[340px] h-full"} ${className}`}
       onPointerEnter={() => {
         control.current.hover = true;
         setHovering(true);
@@ -117,7 +117,7 @@ export default function Logo3DScene({
       onPointerMove={handlePointerMove}
     >
       <Canvas
-        camera={{ position: [0, 0, 4.8], fov: 42 }}
+        camera={{ position: [0, 0, large ? 4.1 : 4.8], fov: large ? 40 : 42 }}
         dpr={[1, 1.6]}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       >
@@ -129,19 +129,19 @@ export default function Logo3DScene({
         <Suspense fallback={null}>
           <DoubleSidedLogoCoin
             control={control}
-            size={large ? 1.08 : 0.95}
+            size={large ? 1.12 : 0.95}
           />
         </Suspense>
         <Sparkles
-          count={10}
-          scale={[2.8, 2.2, 1.2]}
+          count={large ? 14 : 10}
+          scale={large ? [3.1, 2.5, 1.3] : [2.8, 2.2, 1.2]}
           size={0.8}
           speed={0.1}
           opacity={0.25}
           color="#a1a1aa"
         />
       </Canvas>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_40%,#070708ee_80%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_48%,#070708cc_88%)]" />
       {showFooter ? (
         <div className="pointer-events-none absolute bottom-4 left-4 right-4">
           <div className="glass-panel rounded-2xl px-4 py-3">

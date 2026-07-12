@@ -6,13 +6,16 @@ import { PresenceHeartbeat } from "@/components/PresenceHeartbeat";
 import { MarketingScripts } from "@/components/MarketingScripts";
 import { CARIZO_STORE_KEY } from "@/lib/storage-keys";
 import {
-  readPersistedState,
-  shouldApplyRemoteAuctions,
+  readLiveSnapshot,
+  registerLiveSnapshotGetter,
   subscribeAuctionLive,
 } from "@/lib/live-sync";
-import { mergeUsers } from "@/lib/session";
+import {
+  applyServerAuctions,
+  pullAndApplyLiveRoom,
+} from "@/lib/live-room/apply-client";
+import { readTabSessionUserId } from "@/lib/session";
 import { useCarrizo } from "@/lib/store";
-import type { TattooAuction, VerifiedUser } from "@/lib/types";
 
 const LEGACY_STORE_KEYS = [
   "inkora-store-v6-password",
@@ -37,10 +40,30 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const setHydrated = useCarrizo((s) => s.setHydrated);
 
   useEffect(() => {
+    registerLiveSnapshotGetter(() => {
+      const state = useCarrizo.getState();
+      return {
+        auctions: state.auctions,
+        auctionRoomKicks: state.auctionRoomKicks,
+        users: state.users,
+      };
+    });
+  }, []);
+
+  useEffect(() => {
     migrateLegacyStore();
     const finish = () => {
+      const tabSession = readTabSessionUserId();
+      useCarrizo.setState({ sessionUserId: tabSession });
       setHydrated(true);
       void useCarrizo.getState().ensureStudioAdmin();
+      void useCarrizo.getState().ensureDemoUserPasswords();
+      const snap = readLiveSnapshot();
+      if (snap?.auctions?.length) {
+        applyServerAuctions(snap.auctions);
+      }
+      // Solo pull; no empujar al hidratar (evita pisar pujas con estado viejo).
+      void pullAndApplyLiveRoom();
     };
 
     if (useCarrizo.persist.hasHydrated()) {
@@ -60,45 +83,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    return subscribeAuctionLive(() => {
-      const remoteState = readPersistedState<{
-        auctions?: TattooAuction[];
-        users?: VerifiedUser[];
-        sessionUserId?: string | null;
-      }>();
-      if (!remoteState) return;
-
-      const local = useCarrizo.getState();
-      const next: Partial<typeof local> = {};
-
-      if (
-        remoteState.auctions &&
-        shouldApplyRemoteAuctions(remoteState.auctions, local.auctions)
-      ) {
-        next.auctions = remoteState.auctions;
-      }
-
-      if (remoteState.users) {
-        const mergedUsers = mergeUsers(local.users, remoteState.users);
-        if (JSON.stringify(mergedUsers) !== JSON.stringify(local.users)) {
-          next.users = mergedUsers;
-        }
-      }
-
-      const users = next.users ?? local.users;
-
-      if (
-        remoteState.sessionUserId &&
-        remoteState.sessionUserId !== local.sessionUserId &&
-        users.some((user) => user.id === remoteState.sessionUserId)
-      ) {
-        next.sessionUserId = remoteState.sessionUserId;
-      }
-
-      if (Object.keys(next).length > 0) {
-        useCarrizo.setState(next);
+    return subscribeAuctionLive((snapshot) => {
+      if (snapshot?.auctions?.length) {
+        applyServerAuctions(snapshot.auctions);
       }
     });
+  }, []);
+
+  useEffect(() => {
+    void pullAndApplyLiveRoom();
+    const timer = window.setInterval(() => {
+      void pullAndApplyLiveRoom();
+    }, 800);
+    return () => window.clearInterval(timer);
   }, []);
 
   return (

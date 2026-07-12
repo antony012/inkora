@@ -8,7 +8,8 @@ import {
   BadgeCheck,
   CreditCard,
   Lock,
-  ShieldCheck,
+  MapPin,
+  MessageCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { UserCard } from "@/components/UserCard";
@@ -66,14 +67,13 @@ export default function MarketplaceListingPage() {
         page: "listing_detail",
       },
     });
-    // Solo cuenta una vista por montaje de esta ficha.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, listing?.id]);
 
   if (!hydrated || LEGACY_SLUGS.has(params.slug)) {
     return (
       <div className="flex min-h-screen items-center justify-center text-[var(--text-muted)]">
-        Cargando obra...
+        Cargando publicación...
       </div>
     );
   }
@@ -81,7 +81,7 @@ export default function MarketplaceListingPage() {
   if (params.slug !== studio.slug || !listing) {
     return (
       <div className="flex min-h-screen items-center justify-center text-[var(--text-muted)]">
-        Obra no encontrada.
+        Publicación no encontrada.
       </div>
     );
   }
@@ -124,104 +124,112 @@ export default function MarketplaceListingPage() {
   };
 
   return (
-    <div className="ink-grid min-h-screen">
-      <header className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:justify-between">
-        <Link
-          href={`/estudio/${studio.slug}/tienda`}
-          className="inline-flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-white"
-        >
-          <ArrowLeft size={14} />
-          Volver a la tienda
-        </Link>
-        <div className="flex flex-wrap items-center gap-2">
-          <UserCard />
-          <span className={`badge ${listingStatusTone(listing.status)}`}>
-            {listingStatusLabel(listing.status)}
-          </span>
+    <div className="min-h-screen overflow-x-hidden bg-[#0a0a0c] text-[var(--text)]">
+      <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[#0a0a0cee] backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-3 py-3 sm:px-4">
+          <Link
+            href={`/estudio/${studio.slug}/tienda`}
+            className="inline-flex items-center gap-2 text-sm text-[var(--text-muted)] hover:text-[var(--accent-glow)]"
+          >
+            <ArrowLeft size={16} />
+            Marketplace
+          </Link>
+          <UserCard compact />
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-6xl gap-6 px-4 pb-16 lg:grid-cols-[1fr_0.75fr]">
-        <section className="card overflow-hidden">
-          <div className="relative aspect-[4/3] overflow-hidden">
+      <main className="mx-auto grid w-full max-w-5xl gap-0 lg:grid-cols-[1.15fr_0.85fr] lg:items-start lg:gap-6 lg:px-4 lg:py-6">
+        <section className="bg-[#111114] lg:self-start lg:overflow-hidden lg:rounded-2xl">
+          <div className="flex w-full items-center justify-center bg-[#0d0d10]">
             <Image
               src={listing.image}
               alt={listing.title}
-              fill
+              width={1600}
+              height={2000}
               priority
-              className="object-cover"
+              className="h-auto max-h-[min(85vh,920px)] w-full object-contain"
               sizes="(max-width: 1024px) 100vw, 60vw"
             />
           </div>
-          <div className="space-y-5 p-5 sm:p-7">
-            <div className="flex flex-wrap gap-2">
-              <span className="badge badge-gray">{styleLabel(listing.style)}</span>
-              <span className="badge badge-gray">{listing.size ?? "pieza única"}</span>
-              <span className="badge badge-gold">Stock 1</span>
-            </div>
-
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight">{listing.title}</h1>
-              <p className="mt-3 text-[var(--text-muted)]">{listing.description}</p>
-            </div>
-
-            {listing.story ? (
-              <div className="rounded-2xl border border-[var(--border)] bg-[#0d0d10] p-4">
-                <p className="text-xs uppercase tracking-wide text-[var(--text-dim)]">
-                  Historia de la obra
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
-                  {listing.story}
-                </p>
-              </div>
-            ) : null}
-          </div>
         </section>
 
-        <aside className="space-y-4">
-          <section className="card space-y-5 p-5">
-            <div>
-              <p className="text-sm text-[var(--text-muted)]">Precio fijo</p>
-              <p className="text-4xl font-semibold">{formatMoney(listing.price)}</p>
-              <p className="mt-1 text-xs text-[var(--text-dim)]">
-                Compra directa de obra única. Sin pujas ni subastas.
-              </p>
+        <aside className="space-y-0 border-t border-[var(--border)] bg-[#0a0a0c] px-4 py-5 sm:px-5 lg:space-y-4 lg:border-0 lg:bg-transparent lg:p-0">
+          <section className="space-y-3 lg:rounded-2xl lg:border lg:border-[var(--border)] lg:bg-[#111114] lg:p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`badge ${listingStatusTone(listing.status)}`}>
+                {listingStatusLabel(listing.status)}
+              </span>
+              <span className="badge badge-gray">Pieza única</span>
             </div>
 
-            {!sessionUser ? (
-              <Link
-                href="/acceso?from=marketplace"
-                className="btn-primary flex w-full items-center justify-center gap-2 py-3"
+            <p className="text-3xl font-bold tracking-tight text-[var(--accent-glow)] sm:text-4xl">
+              {formatMoney(listing.price)}
+            </p>
+            <h1 className="text-xl font-semibold leading-snug sm:text-2xl">
+              {listing.title}
+            </h1>
+            <p className="flex items-center gap-1.5 text-sm text-[var(--text-muted)]">
+              <MapPin size={14} />
+              En venta en {studio.city}
+            </p>
+            <p className="text-sm text-[var(--text-dim)]">
+              {styleLabel(listing.style)}
+              {listing.size ? ` · ${listing.size.replaceAll("_", " ")}` : ""}
+            </p>
+
+            <div className="flex flex-col gap-2 pt-2 sm:flex-row">
+              {!sessionUser ? (
+                <Link
+                  href="/acceso?from=marketplace&mode=login"
+                  className="btn-primary flex flex-1 items-center justify-center gap-2 py-3"
+                >
+                  Iniciar sesión para comprar
+                </Link>
+              ) : !verified ? (
+                <Link
+                  href="/acceso?from=marketplace"
+                  className="btn-primary flex flex-1 items-center justify-center gap-2 py-3"
+                >
+                  <Lock size={15} />
+                  Verificar para comprar
+                </Link>
+              ) : canBuy ? (
+                <button
+                  type="button"
+                  onClick={onPurchase}
+                  className="btn-primary flex flex-1 items-center justify-center gap-2 py-3"
+                >
+                  <CreditCard size={16} />
+                  Comprar
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="btn-secondary flex-1 py-3 opacity-60"
+                >
+                  {listingStatusLabel(listing.status)}
+                </button>
+              )}
+              <a
+                href={`https://wa.me/${studio.phone.replace(/\D/g, "")}?text=${encodeURIComponent(
+                  `Hola, me interesa "${listing.title}" en Marketplace (${formatMoney(listing.price)}).`,
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary inline-flex flex-1 items-center justify-center gap-2 py-3"
               >
-                Iniciar sesión para comprar
-              </Link>
-            ) : !verified ? (
-              <div className="rounded-2xl border border-[#fbbf2444] bg-[#fbbf2411] p-4 text-sm text-[#fcd34d]">
-                <p className="flex items-center gap-2 font-medium">
-                  <Lock size={15} /> Verificación requerida
-                </p>
-                <p className="mt-1 text-xs">
-                  Protegemos compras únicas con identidad verificada. Completa tu documento
-                  en Acceso.
-                </p>
-              </div>
-            ) : canBuy ? (
-              <button
-                type="button"
-                onClick={onPurchase}
-                className="btn-primary flex w-full items-center justify-center gap-2 py-3"
-              >
-                <CreditCard size={16} />
-                Comprar ahora
-              </button>
-            ) : (
-              <button type="button" disabled className="btn-secondary w-full py-3 opacity-60">
-                {listingStatusLabel(listing.status)}
-              </button>
-            )}
+                <MessageCircle size={16} />
+                Mensaje
+              </a>
+            </div>
 
             {order?.status === "pendiente_pago" ? (
-              <button type="button" onClick={onPay} className="btn-secondary w-full py-3">
+              <button
+                type="button"
+                onClick={onPay}
+                className="btn-secondary w-full py-3"
+              >
                 Simular pago MercadoPago
               </button>
             ) : null}
@@ -233,10 +241,11 @@ export default function MarketplaceListingPage() {
             ) : null}
           </section>
 
-          <section className="card space-y-4 p-5">
+          <section className="mt-5 border-t border-[var(--border)] pt-5 lg:mt-0 lg:rounded-2xl lg:border lg:border-[var(--border)] lg:bg-[#111114] lg:p-5 lg:pt-5">
+            <p className="mb-3 text-sm font-semibold">Información del vendedor</p>
             <div className="flex items-center gap-3">
-              {artist?.photoUrl ? (
-                <div className="relative h-12 w-12 overflow-hidden rounded-2xl">
+              <div className="relative h-12 w-12 overflow-hidden rounded-full bg-[#1c1c22]">
+                {artist?.photoUrl ? (
                   <Image
                     src={artist.photoUrl}
                     alt={artist.name}
@@ -244,32 +253,34 @@ export default function MarketplaceListingPage() {
                     className="object-cover"
                     sizes="48px"
                   />
-                </div>
-              ) : (
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#34d39922] text-[#6ee7b7]">
-                  <ShieldCheck />
-                </div>
-              )}
-              <div>
-                <p className="font-semibold">{artist?.name}</p>
-                <p className="text-xs text-[var(--text-muted)]">{artist?.role}</p>
+                ) : null}
+              </div>
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 font-medium">
+                  {artist?.name}
+                  <BadgeCheck size={15} className="text-[var(--accent-glow)]" />
+                </p>
+                <p className="text-xs text-[var(--text-muted)]">
+                  {artist?.role ?? "Artista"} · {studio.name}
+                </p>
               </div>
             </div>
-            {artist?.story ? (
-              <p className="text-sm leading-relaxed text-[var(--text-muted)]">
-                {artist.story}
+          </section>
+
+          <section className="mt-5 border-t border-[var(--border)] pt-5 lg:mt-0 lg:rounded-2xl lg:border lg:border-[var(--border)] lg:bg-[#111114] lg:p-5 lg:pt-5">
+            <p className="mb-2 text-sm font-semibold">Detalles</p>
+            <p className="text-sm leading-relaxed text-[var(--text-muted)]">
+              {listing.description}
+            </p>
+            {listing.story ? (
+              <p className="mt-3 text-sm leading-relaxed text-[var(--text-dim)]">
+                {listing.story}
               </p>
             ) : null}
-            <div className="space-y-2 text-sm text-[var(--text-muted)]">
-              <p className="flex items-center gap-2">
-                <BadgeCheck size={15} className="text-[#6ee7b7]" />
-                Artista curado por {studio.name}
-              </p>
-              <p>
-                Tras confirmar la compra, el estudio coordina adaptación al cuerpo y fecha
-                de sesión.
-              </p>
-            </div>
+            <p className="mt-4 text-xs text-[var(--text-dim)]">
+              Tras confirmar la compra, el estudio coordina adaptación al cuerpo y fecha
+              de sesión.
+            </p>
           </section>
         </aside>
       </main>

@@ -51,6 +51,32 @@ export function nextMinBid(auction: TattooAuction) {
   return top + auction.minIncrement;
 }
 
+export function auctionActivityScore(auction: TattooAuction) {
+  const latestBid = auction.bids.reduce(
+    (max, bid) => Math.max(max, new Date(bid.createdAt).getTime()),
+    0,
+  );
+  return Math.max(latestBid, new Date(auction.createdAt).getTime());
+}
+
+/** Subasta en vivo más reciente (prioriza la creada última, no el seed demo). */
+export function getPrimaryLiveAuction(
+  auctions: TattooAuction[],
+  now = Date.now(),
+) {
+  const live = auctions.filter(
+    (item) => resolveAuctionStatus(item, now) === "en_vivo",
+  );
+  if (!live.length) return auctions[0];
+
+  return [...live].sort((a, b) => {
+    const createdDiff =
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    if (createdDiff !== 0) return createdDiff;
+    return auctionActivityScore(b) - auctionActivityScore(a);
+  })[0];
+}
+
 export function auctionStatusLabel(status: AuctionStatus) {
   const map: Record<AuctionStatus, string> = {
     programada: "Programada",

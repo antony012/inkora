@@ -11,7 +11,13 @@ export function useOnlineUsers() {
     const refresh = () => setOnlineUsers(getOnlineUsers());
 
     refresh();
-    return subscribePresence(refresh);
+    const unsubscribe = subscribePresence(refresh);
+    const fastPoll = window.setInterval(refresh, 2000);
+
+    return () => {
+      unsubscribe();
+      window.clearInterval(fastPoll);
+    };
   }, []);
 
   return onlineUsers;

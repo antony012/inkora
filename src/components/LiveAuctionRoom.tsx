@@ -13,6 +13,7 @@ import {
 import {
   auctionStatusLabel,
   formatCountdown,
+  getPrimaryLiveAuction,
   leadingBid,
   nextMinBid,
   resolveAuctionStatus,
@@ -21,8 +22,13 @@ import {
 import { trackMarketingEvent } from "@/lib/analytics";
 import { formatMoney, styleLabel } from "@/lib/quote-engine";
 import { LiveRoomAudience } from "@/components/LiveRoomAudience";
+import {
+  BidFlashOverlay,
+  useBidFlash,
+} from "@/components/BidFlashOverlay";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import { useAuctionRoomUsers } from "@/hooks/useAuctionRoomUsers";
+import { useLiveRoomSync } from "@/hooks/useLiveRoomSync";
 import { useCarrizo } from "@/lib/store";
 import { auctionAccessMessage, canPlaceBid } from "@/lib/user-access";
 import {
@@ -42,16 +48,15 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
   const auctions = useCarrizo((s) => s.auctions);
   const placeBid = useCarrizo((s) => s.placeBid);
   const syncAuctionStatuses = useCarrizo((s) => s.syncAuctionStatuses);
+  const auctionRoomKicks = useCarrizo((s) => s.auctionRoomKicks);
   const studioSlug = useCarrizo((s) => s.studio.slug);
   const roomUsers = useAuctionRoomUsers(studioSlug);
   const { hydrated, sessionUser } = useSessionUser();
+  useLiveRoomSync(500);
 
   const auction = useMemo(() => {
     if (auctionId) return auctions.find((item) => item.id === auctionId);
-    return (
-      auctions.find((item) => resolveAuctionStatus(item) === "en_vivo") ??
-      auctions[0]
-    );
+    return getPrimaryLiveAuction(auctions);
   }, [auctionId, auctions]);
 
   const [now, setNow] = useState(Date.now());
@@ -66,6 +71,7 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
     [auction],
   );
   const leader = auction ? leadingBid(auction) : undefined;
+  const bidFlash = useBidFlash(leader);
 
   useEffect(() => {
     if (!auction) return;
@@ -111,6 +117,10 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
 
   const status = resolveAuctionStatus(auction, now);
   const minimum = nextMinBid(auction);
+  const kick = sessionUser
+    ? auctionRoomKicks.find((item) => item.userId === sessionUser.id)
+    : undefined;
+  const isKicked = Boolean(kick);
 
   const onBid = (e: FormEvent) => {
     e.preventDefault();
@@ -152,6 +162,7 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+      <BidFlashOverlay flash={bidFlash} />
       <section className="card overflow-hidden">
         <div className="relative h-80 sm:h-[28rem]">
           <Image
@@ -267,7 +278,15 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
                     </span>
                   </div>
 
-                  {!canPlaceBid(sessionUser) ? (
+                  {isKicked ? (
+                    <div className="rounded-2xl border border-[#fb718544] bg-[#fb718514] p-4 text-sm text-[#fb7185]">
+                      <p className="font-medium">Fuiste expulsado de la sala</p>
+                      <p className="mt-1 text-[var(--text-muted)]">
+                        {kick?.reason ||
+                          "El administrador te sacó de esta subasta. No puedes pujar."}
+                      </p>
+                    </div>
+                  ) : !canPlaceBid(sessionUser) ? (
                     <div className="rounded-2xl border border-[#fbbf2444] bg-[#fbbf2414] p-4 text-sm text-[#fcd34d]">
                       {auctionAccessMessage(sessionUser).detail}
                       <Link

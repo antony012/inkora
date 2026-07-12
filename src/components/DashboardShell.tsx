@@ -17,11 +17,10 @@ import {
   Menu,
   X,
   Gavel,
-  ShieldCheck,
-  Eye,
   MessageCircle,
   ShoppingBag,
   Sparkles,
+  UserCog,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
@@ -34,14 +33,13 @@ const nav = [
   { href: "/dashboard/solicitudes", label: "Solicitudes", icon: Inbox },
   { href: "/dashboard/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/dashboard/clientes", label: "Clientes", icon: Users },
+  { href: "/dashboard/usuarios", label: "Usuarios", icon: UserCog },
   { href: "/dashboard/caja", label: "Caja", icon: Wallet },
   { href: "/dashboard/consentimientos", label: "Consentimientos", icon: FileSignature },
   { href: "/dashboard/portafolio", label: "Portafolio", icon: Images },
   { href: "/dashboard/preview", label: "Preview IA", icon: Sparkles },
   { href: "/dashboard/marketplace", label: "Marketplace", icon: ShoppingBag },
-  { href: "/dashboard/subastas", label: "Subastas", icon: Gavel },
-  { href: "/dashboard/sala-admin", label: "Sala admin", icon: Eye },
-  { href: "/dashboard/verificaciones", label: "Verificaciones", icon: ShieldCheck },
+  { href: "/dashboard/sala-admin", label: "Sala Admin subastas", icon: Gavel },
   { href: "/dashboard/reportes", label: "Reportes", icon: BarChart3 },
   { href: "/dashboard/configuracion", label: "Configuración", icon: Settings },
 ];
@@ -99,7 +97,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             {nav.map((item) => {
               const active =
                 pathname === item.href ||
-                (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                (item.href !== "/dashboard" && pathname.startsWith(item.href)) ||
+                (item.href === "/dashboard/sala-admin" &&
+                  pathname.startsWith("/dashboard/subastas"));
               const Icon = item.icon;
               return (
                 <Link
@@ -131,7 +131,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                       {unreadChats}
                     </span>
                   ) : null}
-                  {item.href === "/dashboard/verificaciones" &&
+                  {item.href === "/dashboard/usuarios" &&
                   pendingVerifications > 0 ? (
                     <span className="rounded-full bg-[#fbbf24] px-2 py-0.5 text-[10px] font-bold text-black">
                       {pendingVerifications}
