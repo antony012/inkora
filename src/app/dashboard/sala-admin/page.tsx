@@ -495,8 +495,8 @@ export default function SalaAdminPage() {
                             ofertas ·{" "}
                             {itemStatus === "en_vivo"
                               ? formatCountdown(item.endsAt, now)
-                              : item.winnerName
-                                ? `Ganó ${item.winnerName}`
+                              : item.winnerName || leadingBid(item)?.bidderName
+                                ? `Ganó ${item.winnerName ?? leadingBid(item)?.bidderName}`
                                 : "Sin ganador"}
                           </p>
                         </div>

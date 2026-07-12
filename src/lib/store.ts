@@ -1343,6 +1343,10 @@ function createCarrizoStore() {
 
         if (changed) {
           set({ auctions });
+          // Persiste ganador/estado en el servidor (Netlify / otros navegadores).
+          void pushLiveRoomToServer({
+            auctions: sanitizeAuctionsForSync(get().auctions),
+          });
         }
       },
 

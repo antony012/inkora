@@ -92,6 +92,18 @@ export function mergeAuctionLists(
       endsAt,
       image: pickImage(winner.image, other.image),
       status,
+      winnerName:
+        status === "finalizada" || status === "cancelada"
+          ? bids[0]?.bidderName ??
+            winner.winnerName ??
+            other.winnerName
+          : winner.winnerName ?? other.winnerName,
+      winnerPhone:
+        status === "finalizada" || status === "cancelada"
+          ? bids[0]?.bidderPhone ??
+            winner.winnerPhone ??
+            other.winnerPhone
+          : winner.winnerPhone ?? other.winnerPhone,
     });
   }
 
@@ -109,8 +121,43 @@ export function mergeAuctionLists(
         auction.id === "auction-live-1" &&
         auction.status === "en_vivo"
       ) {
-        return { ...auction, status: "finalizada" as const };
+        const top = [...auction.bids].sort((a, b) => {
+          if (b.amount !== a.amount) return b.amount - a.amount;
+          return (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        })[0];
+        return {
+          ...auction,
+          status: "finalizada" as const,
+          winnerName: auction.winnerName ?? top?.bidderName,
+          winnerPhone: auction.winnerPhone ?? top?.bidderPhone,
+          currentBid: top?.amount ?? auction.currentBid,
+        };
       }
+
+      // Rellena ganador faltante si ya está finalizada y hay pujas.
+      if (
+        (auction.status === "finalizada" ||
+          new Date(auction.endsAt).getTime() <= Date.now()) &&
+        auction.bids.length > 0 &&
+        !auction.winnerName
+      ) {
+        const top = [...auction.bids].sort((a, b) => {
+          if (b.amount !== a.amount) return b.amount - a.amount;
+          return (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        })[0];
+        return {
+          ...auction,
+          status: "finalizada" as const,
+          winnerName: top?.bidderName,
+          winnerPhone: top?.bidderPhone,
+          currentBid: Math.max(auction.currentBid, top?.amount ?? 0),
+        };
+      }
+
       return auction;
     })
     .sort(
