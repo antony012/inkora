@@ -26,6 +26,10 @@ import {
   BidFlashOverlay,
   useBidFlash,
 } from "@/components/BidFlashOverlay";
+import {
+  WinnerCelebrationOverlay,
+  useWinnerCelebration,
+} from "@/components/WinnerCelebration";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import { useAuctionRoomUsers } from "@/hooks/useAuctionRoomUsers";
 import { useLiveRoomSync } from "@/hooks/useLiveRoomSync";
@@ -72,6 +76,21 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
   );
   const leader = auction ? leadingBid(auction) : undefined;
   const bidFlash = useBidFlash(leader);
+  const winnerName = auction?.winnerName ?? leader?.bidderName;
+  const winnerUserId = leader?.bidderUserId;
+  const winnerAmount = Math.max(
+    auction?.currentBid ?? 0,
+    leader?.amount ?? 0,
+  );
+  const { celebration, dismiss } = useWinnerCelebration({
+    auctionId: auction?.id,
+    status: auction ? resolveAuctionStatus(auction, now) : "programada",
+    winnerUserId,
+    winnerName,
+    amount: winnerAmount,
+    sessionUserId: sessionUser?.id,
+    sessionUserName: sessionUser?.name,
+  });
 
   useEffect(() => {
     if (!auction) return;
@@ -163,6 +182,10 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
       <BidFlashOverlay flash={bidFlash} />
+      <WinnerCelebrationOverlay
+        celebration={celebration}
+        onDismiss={dismiss}
+      />
       <section className="card overflow-hidden">
         <div className="relative h-80 sm:h-[28rem]">
           <Image
@@ -210,7 +233,9 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
               </p>
               <p className="mt-2 text-sm text-[var(--text-muted)]">
                 {leader
-                  ? `Va ganando ${leader.bidderName}`
+                  ? status === "finalizada"
+                    ? `Ganó ${leader.bidderName}`
+                    : `Va ganando ${leader.bidderName}`
                   : `Precio base ${formatMoney(auction.startingPrice)}`}
               </p>
             </div>
@@ -234,8 +259,13 @@ export function LiveAuctionRoom({ auctionId }: { auctionId?: string }) {
                 <Trophy size={16} /> Subasta finalizada
               </p>
               <p className="mt-2 text-sm text-[var(--text-muted)]">
-                {auction.winnerName
-                  ? `Ganador: ${auction.winnerName} por ${formatMoney(auction.currentBid)}. Enderxon te contactará para agendar la sesión.`
+                {auction.winnerName || leader
+                  ? `Ganador: ${auction.winnerName ?? leader?.bidderName} por ${formatMoney(
+                      Math.max(
+                        auction.currentBid,
+                        leader?.amount ?? 0,
+                      ),
+                    )}. Enderxon te contactará para agendar la sesión.`
                   : "La subasta terminó sin ofertas."}
               </p>
             </div>

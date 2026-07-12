@@ -1306,10 +1306,16 @@ function createCarrizoStore() {
             bids.length !== auction.bids.length ||
             bids.some((bid, index) => bid.id !== auction.bids[index]?.id);
 
+          const needsWinner =
+            status === "finalizada" &&
+            Boolean(leader) &&
+            !auction.winnerName;
+
           if (
             status === auction.status &&
             !needsSort &&
-            currentBid === auction.currentBid
+            currentBid === auction.currentBid &&
+            !needsWinner
           ) {
             return auction;
           }
@@ -1322,8 +1328,8 @@ function createCarrizoStore() {
               bids,
               currentBid,
               status,
-              winnerName: leader?.bidderName,
-              winnerPhone: leader?.bidderPhone,
+              winnerName: leader?.bidderName ?? auction.winnerName,
+              winnerPhone: leader?.bidderPhone ?? auction.winnerPhone,
             };
           }
 
